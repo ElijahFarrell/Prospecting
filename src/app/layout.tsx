@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Syne, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ConvexClientProvider } from "@/components/convex-provider";
 
-const spaceGrotesk = Space_Grotesk({
+const syne = Syne({
+  subsets: ["latin"],
+  variable: "--font-display",
+});
+
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
 });
@@ -27,7 +32,7 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en" className="dark">
-        <body className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} font-sans`}>
+        <body className={`${syne.variable} ${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
           <ConvexClientProvider>{children}</ConvexClientProvider>
         </body>
       </html>

@@ -4,48 +4,50 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    /* Light mode - kept minimal but aligned with brand */
+    --background: 220 20% 97%;
+    --foreground: 224 20% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 224 20% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    --popover-foreground: 224 20% 10%;
+    --primary: 224 20% 10%;
+    --primary-foreground: 210 20% 98%;
+    --secondary: 220 15% 90%;
+    --secondary-foreground: 224 20% 10%;
+    --muted: 220 15% 90%;
+    --muted-foreground: 224 10% 45%;
+    --accent: 220 15% 90%;
+    --accent-foreground: 224 20% 10%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --radius: 0.5rem;
+    --destructive-foreground: 210 20% 98%;
+    --border: 220 15% 90%;
+    --input: 220 15% 90%;
+    --ring: 224 20% 10%;
+    --radius: 0.75rem;
   }
 
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 7%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
+    /* Shiloh Purple Palette */
+    --background: 260 25% 7%; /* Deep purple-tinted black */
+    --foreground: 210 20% 98%;
+    --card: 260 20% 11%;
+    --card-foreground: 210 20% 98%;
+    --popover: 260 20% 11%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 266 53% 54%; /* Shiloh Purple - rgb(129, 74, 200) */
+    --primary-foreground: 210 20% 98%;
+    --secondary: 260 20% 16%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 260 15% 16%;
+    --muted-foreground: 260 10% 60%;
+    --accent: 260 25% 22%; /* Lighter purple for hover */
+    --accent-foreground: 210 20% 98%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 260 20% 18%;
+    --input: 260 20% 18%;
+    --ring: 266 53% 54%;
   }
 }
 
@@ -53,8 +55,27 @@
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground antialiased;
+    /* Subtle noise texture */
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-background/80 backdrop-blur-md border-b border-white/5;
+  }
+  
+  .glass-card {
+    @apply bg-card/60 backdrop-blur-sm border border-white/5 shadow-xl;
+  }
+
+  .text-glow {
+    text-shadow: 0 0 20px hsla(var(--primary) / 0.5);
+  }
+  
+  .border-glow {
+    box-shadow: 0 0 10px hsla(var(--primary) / 0.2);
   }
 }

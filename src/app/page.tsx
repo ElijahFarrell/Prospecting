@@ -78,21 +78,21 @@ export default function HomePage() {
 
       {/* Authenticated - Show main app */}
       <Authenticated>
-        <div className="flex h-screen flex-col bg-background">
+        <div className="flex h-screen flex-col bg-background text-foreground">
           {/* Header */}
-          <header className="flex items-center justify-between border-b px-4 py-3 shrink-0">
-            <div className="flex items-center gap-3">
+          <header className="glass flex items-center justify-between px-6 py-4 shrink-0 z-50">
+            <div className="flex items-center gap-4">
               {/* Left panel toggle - Desktop */}
               <Button
                 variant="ghost"
                 size="icon"
-                className="hidden md:flex"
+                className="hidden md:flex hover:bg-white/5"
                 onClick={() => setLeftPanelOpen(!leftPanelOpen)}
               >
                 {leftPanelOpen ? (
-                  <PanelLeftClose className="h-4 w-4" />
+                  <PanelLeftClose className="h-5 w-5" />
                 ) : (
-                  <PanelLeft className="h-4 w-4" />
+                  <PanelLeft className="h-5 w-5" />
                 )}
               </Button>
 
@@ -100,10 +100,10 @@ export default function HomePage() {
               <Sheet>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="md:hidden">
-                    <PanelLeft className="h-4 w-4" />
+                    <PanelLeft className="h-5 w-5" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="w-72 p-0">
+                <SheetContent side="left" className="w-72 p-0 border-r-white/10 bg-background/95 backdrop-blur-xl">
                   <ChatHistory
                     activeThreadId={activeThreadId ?? undefined}
                     onSelectThread={handleSelectThread}
@@ -112,33 +112,40 @@ export default function HomePage() {
                 </SheetContent>
               </Sheet>
 
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-                <Sparkles className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <div>
-                <h1 className="font-semibold">Creator Scout</h1>
-                <p className="text-xs text-muted-foreground">AI-powered creator discovery</p>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-[0_0_15px_rgba(var(--primary),0.3)]">
+                  <Sparkles className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <div>
+                  <h1 className="font-display font-bold text-lg tracking-tight">Creator Scout</h1>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Intelligence Engine</p>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               {creators.length > 0 && (
-                <span className="text-sm text-muted-foreground hidden sm:inline">
+                <span className="text-sm font-medium text-muted-foreground hidden sm:inline-flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                  <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                   {creators.length} creator{creators.length !== 1 ? "s" : ""} found
                 </span>
               )}
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/test">
-                  <TestTube2 className="h-4 w-4 mr-2" />
-                  Test
-                </Link>
-              </Button>
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/debug">
-                  <Bug className="h-4 w-4 mr-2" />
-                  Debug
-                </Link>
-              </Button>
+              <div className="flex items-center gap-1 bg-white/5 p-1 rounded-lg border border-white/5">
+                <Button variant="ghost" size="sm" asChild className="h-8 hover:bg-white/5 hover:text-primary">
+                  <Link href="/test">
+                    <TestTube2 className="h-4 w-4 mr-2" />
+                    Test
+                  </Link>
+                </Button>
+                <Button variant="ghost" size="sm" asChild className="h-8 hover:bg-white/5 hover:text-primary">
+                  <Link href="/debug">
+                    <Bug className="h-4 w-4 mr-2" />
+                    Debug
+                  </Link>
+                </Button>
+              </div>
+
+              <div className="h-8 w-[1px] bg-white/10 mx-1" />
 
               {/* User menu */}
               <UserButton afterSignOutUrl="/" />
@@ -147,13 +154,13 @@ export default function HomePage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="hidden md:flex"
+                className="hidden md:flex hover:bg-white/5"
                 onClick={() => setRightPanelOpen(!rightPanelOpen)}
               >
                 {rightPanelOpen ? (
-                  <PanelRightClose className="h-4 w-4" />
+                  <PanelRightClose className="h-5 w-5" />
                 ) : (
-                  <PanelRight className="h-4 w-4" />
+                  <PanelRight className="h-5 w-5" />
                 )}
               </Button>
 
@@ -161,21 +168,21 @@ export default function HomePage() {
               <Sheet>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon" className="md:hidden">
-                    <PanelRight className="h-4 w-4" />
+                    <PanelRight className="h-5 w-5" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="right" className="w-72 p-0">
+                <SheetContent side="right" className="w-72 p-0 border-l-white/10 bg-background/95 backdrop-blur-xl">
                   <ProspectsPanel />
                 </SheetContent>
               </Sheet>
             </div>
           </header>
 
-          {/* Main content */}
-          <div className="flex flex-1 overflow-hidden">
+          {/* Main content - Dashboard Grid Layout */}
+          <div className="flex flex-1 gap-4 p-4 overflow-hidden relative z-0">
             {/* Left sidebar - Chat History */}
             {leftPanelOpen && (
-              <div className="hidden md:flex w-64 shrink-0">
+              <div className="hidden md:flex w-72 shrink-0 glass-card rounded-2xl overflow-hidden flex-col animate-in slide-in-from-left-4 fade-in duration-500">
                 <ChatHistory
                   activeThreadId={activeThreadId ?? undefined}
                   onSelectThread={handleSelectThread}
@@ -185,7 +192,7 @@ export default function HomePage() {
             )}
 
             {/* Center - Chat */}
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 flex flex-col min-w-0 glass-card rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 fade-in duration-500 delay-75">
               <Chat 
                 onCreatorsFound={handleCreatorsFound} 
                 threadId={activeThreadId ?? undefined}
@@ -195,7 +202,7 @@ export default function HomePage() {
 
             {/* Right sidebar - Prospects */}
             {rightPanelOpen && (
-              <div className="hidden md:flex w-72 shrink-0">
+              <div className="hidden md:flex w-80 shrink-0 glass-card rounded-2xl overflow-hidden flex-col animate-in slide-in-from-right-4 fade-in duration-500 delay-150">
                 <ProspectsPanel />
               </div>
             )}

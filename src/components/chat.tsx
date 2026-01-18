@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Collapsible,
   CollapsibleContent,
@@ -35,7 +36,6 @@ const PROGRESS_STAGES = [
   { message: "Finalizing analysis...", duration: 60000 },
 ];
 
-// Check if any message has a completed tool result
 function hasCompletedToolResult(messages: Array<{ parts?: Array<{ type?: string; state?: string; output?: unknown }> }>) {
   for (const message of messages) {
     if (!message.parts) continue;
@@ -58,10 +58,10 @@ interface ChatProps {
 }
 
 const SEARCH_DEPTH_OPTIONS = [
-  { value: 10, label: "Quick (10 posts)" },
-  { value: 30, label: "Standard (30 posts)" },
-  { value: 50, label: "Deep (50 posts)" },
-  { value: 100, label: "Exhaustive (100 posts)" },
+  { value: 10, label: "Quick" },
+  { value: 30, label: "Standard" },
+  { value: 50, label: "Deep" },
+  { value: 100, label: "Exhaustive" },
 ];
 
 export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) {
@@ -77,7 +77,6 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
   const scrollRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number | null>(null);
 
-  // Convex mutations and queries
   const createThread = useMutation(api.chats.createThread);
   const addMessage = useMutation(api.chats.addMessage);
   const storedMessages = useQuery(
@@ -85,11 +84,9 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
     currentThreadId ? { threadId: currentThreadId } : "skip"
   );
 
-  // Store a ref to the current thread ID so we can use it in onFinish
   const currentThreadIdRef = useRef(currentThreadId);
   currentThreadIdRef.current = currentThreadId;
 
-  // useChat hook must be called before any effects that depend on setMessages
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
@@ -99,7 +96,6 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
       setProgressStage(0);
       setElapsedTime(0);
 
-      // Save assistant message to Convex (use ref to get current value)
       const textContent = message.parts
         ?.filter((p) => p.type === "text")
         .map((p) => (p as { text: string }).text)
@@ -135,21 +131,16 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
     },
   });
 
-  // Update currentThreadId when prop changes and clear messages for new chats
   useEffect(() => {
     const newThreadId = threadId ?? null;
     setCurrentThreadId(newThreadId);
-    
-    // If switching to a new chat (no thread), clear messages immediately
     if (!newThreadId) {
       setMessages([]);
     }
   }, [threadId, setMessages]);
 
-  // Load stored messages when thread changes
   useEffect(() => {
     if (storedMessages && storedMessages.length > 0) {
-      // Convert stored messages to useChat format
       const loadedMessages = storedMessages.map((msg, idx) => ({
         id: msg._id || `stored-${idx}`,
         role: msg.role as "user" | "assistant",
@@ -158,31 +149,24 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
       }));
       setMessages(loadedMessages as never);
     } else if (currentThreadId && storedMessages?.length === 0) {
-      // Clear messages for new thread
       setMessages([]);
     }
   }, [storedMessages, currentThreadId, setMessages]);
 
   const isLoading = status === "streaming" || status === "submitted";
 
-  // Progress timer
   useEffect(() => {
     if (!isLoading) {
       startTimeRef.current = null;
       return;
     }
-
     if (!startTimeRef.current) {
       startTimeRef.current = Date.now();
     }
-
     const timer = setInterval(() => {
       if (!startTimeRef.current) return;
-      
       const elapsed = Date.now() - startTimeRef.current;
       setElapsedTime(elapsed);
-      
-      // Find the right stage based on elapsed time
       let newStage = 0;
       for (let i = 0; i < PROGRESS_STAGES.length; i++) {
         if (elapsed >= PROGRESS_STAGES[i].duration) {
@@ -191,14 +175,11 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
       }
       setProgressStage(Math.min(newStage, PROGRESS_STAGES.length - 1));
     }, 500);
-
     return () => clearInterval(timer);
   }, [isLoading]);
 
-  // Autoscroll to bottom on new messages or when loading state changes
   useEffect(() => {
     if (scrollRef.current) {
-      // Use setTimeout to ensure DOM has updated
       setTimeout(() => {
         if (scrollRef.current) {
           scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -214,7 +195,6 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
     const text = inputValue;
     setInputValue("");
 
-    // Create thread if none exists
     let threadToUse = currentThreadId;
     if (!threadToUse) {
       try {
@@ -229,7 +209,6 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
       }
     }
 
-    // Save user message to Convex
     if (threadToUse) {
       try {
         await addMessage({
@@ -247,53 +226,118 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-        <div className="space-y-4 max-w-2xl mx-auto">
-          {messages.length === 0 && (
-            <Card className="border-dashed">
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center justify-center text-center">
-                  <div className="mb-4 rounded-full bg-primary/10 p-4">
-                    <Sparkles className="h-8 w-8 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-semibold">Welcome to Creator Scout</h3>
-                  <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-                    Tell me what kind of creators you're looking for. Try something like:
-                  </p>
-                  <div className="mt-4 space-y-2 text-sm">
-                    <button
-                      onClick={() =>
-                        setInputValue("Find fitness creators with 10k-50k followers")
-                      }
-                      className="block w-full rounded-lg bg-muted px-3 py-2 hover:bg-muted/80 transition-colors"
+    <div className="flex h-full flex-col relative">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-white/[0.02] shrink-0 backdrop-blur-md z-10">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-primary/20 flex items-center justify-center ring-1 ring-primary/30 shadow-[0_0_15px_hsla(var(--primary)/0.3)]">
+            <Bot className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="font-display font-bold text-sm tracking-wide">Orchestrator Agent</h2>
+            <div className="flex items-center gap-2">
+              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Online</span>
+            </div>
+          </div>
+        </div>
+        
+        <Collapsible open={configOpen} onOpenChange={setConfigOpen} className="relative">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="justify-between gap-4 border border-white/5 bg-white/5 hover:bg-white/10 hover:text-primary transition-all duration-300">
+              <span className="flex items-center gap-2 text-xs font-medium">
+                <Settings2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Config</span>
+              </span>
+              <div className="flex gap-1.5">
+                <Badge variant="outline" className="text-[10px] font-mono border-white/10 text-muted-foreground px-1.5">{searchDepth}</Badge>
+                <Badge variant="outline" className="text-[10px] font-mono border-white/10 text-muted-foreground px-1.5">{creatorLimit}</Badge>
+              </div>
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="absolute right-0 top-full mt-2 w-[280px] p-4 border border-white/10 rounded-xl bg-card/95 backdrop-blur-xl z-50 shadow-2xl animate-in slide-in-from-top-2 zoom-in-95">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Search Depth</label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {SEARCH_DEPTH_OPTIONS.map((option) => (
+                    <Button
+                      key={option.value}
+                      variant={searchDepth === option.value ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSearchDepth(option.value)}
+                      className={cn(
+                        "text-[10px] h-7 font-medium transition-all",
+                        searchDepth === option.value 
+                          ? "bg-primary text-primary-foreground shadow-[0_0_10px_hsla(var(--primary)/0.4)]" 
+                          : "border-white/10 bg-transparent hover:bg-white/5 hover:border-primary/50"
+                      )}
                     >
-                      "Find fitness creators with 10k-50k followers"
-                    </button>
-                    <button
-                      onClick={() =>
-                        setInputValue("Look for sustainable fashion influencers")
-                      }
-                      className="block w-full rounded-lg bg-muted px-3 py-2 hover:bg-muted/80 transition-colors"
-                    >
-                      "Look for sustainable fashion influencers"
-                    </button>
-                    <button
-                      onClick={() =>
-                        setInputValue("Search for personal finance content creators")
-                      }
-                      className="block w-full rounded-lg bg-muted px-3 py-2 hover:bg-muted/80 transition-colors"
-                    >
-                      "Search for personal finance content creators"
-                    </button>
-                  </div>
+                      {option.value}
+                    </Button>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Creator Limit</label>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {[3, 5, 10, 15, 20].map((num) => (
+                    <Button
+                      key={num}
+                      variant={creatorLimit === num ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCreatorLimit(num)}
+                      className={cn(
+                        "text-[10px] h-7 font-medium transition-all",
+                        creatorLimit === num 
+                          ? "bg-primary text-primary-foreground shadow-[0_0_10px_hsla(var(--primary)/0.4)]" 
+                          : "border-white/10 bg-transparent hover:bg-white/5 hover:border-primary/50"
+                      )}
+                    >
+                      {num}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
+
+      {/* Messages */}
+      <ScrollArea className="flex-1 p-4 sm:p-6" ref={scrollRef}>
+        <div className="space-y-6 max-w-3xl mx-auto pb-4">
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] text-center animate-in zoom-in-95 fade-in duration-700">
+              <div className="mb-6 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 p-5 border border-primary/20 shadow-[0_0_40px_hsla(var(--primary)/0.15)] relative">
+                <div className="absolute inset-0 bg-primary/10 blur-2xl rounded-full" />
+                <Sparkles className="h-10 w-10 text-primary relative z-10" />
+              </div>
+              <h3 className="text-2xl font-display font-bold text-foreground">
+                Creator Scout
+              </h3>
+              <p className="mt-3 max-w-md text-sm text-muted-foreground leading-relaxed">
+                Describe your ideal creator. I'll coordinate specialized agents to scout, analyze, and qualify prospects.
+              </p>
+              <div className="mt-8 grid gap-2 w-full max-w-sm">
+                {[
+                  "Find fitness creators with 10k-50k followers",
+                  "Search for personal finance influencers",
+                  "Look for sustainable fashion creators"
+                ].map((prompt, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setInputValue(prompt)}
+                    className="w-full text-left p-3 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] hover:border-primary/30 transition-all duration-300 text-sm text-muted-foreground hover:text-foreground group"
+                  >
+                    <span className="opacity-50 group-hover:opacity-100 transition-opacity">"{prompt}"</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {messages.map((message) => {
-            // Check if this message has any visible content
             const hasTextContent = message.parts?.some(
               (p) => p.type === "text" && p.text?.trim()
             );
@@ -301,7 +345,6 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
               (p) => p.type === "tool-invocation" || p.type?.startsWith("tool-")
             );
             
-            // Skip rendering empty assistant messages (no text, no tool results)
             if (message.role === "assistant" && !hasTextContent && !hasToolContent) {
               return null;
             }
@@ -310,42 +353,47 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
               <div
                 key={message.id}
                 className={cn(
-                  "flex gap-3",
+                  "flex gap-3 animate-in slide-in-from-bottom-2 duration-300",
                   message.role === "user" ? "justify-end" : "justify-start"
                 )}
               >
                 {message.role === "assistant" && (
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarFallback className="bg-primary text-primary-foreground">
-                      <Bot className="h-4 w-4" />
-                    </AvatarFallback>
+                  <Avatar className="h-8 w-8 shrink-0 mt-1 ring-1 ring-white/10">
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">AI</AvatarFallback>
                   </Avatar>
                 )}
 
-                <div
-                  className={cn(
-                    "max-w-[85%] space-y-3",
-                    message.role === "user" ? "items-end" : "items-start"
-                  )}
-                >
+                <div className={cn("flex flex-col gap-1 max-w-[85%]", message.role === "user" ? "items-end" : "items-start")}>
                   {message.parts?.map((part, i) => {
-                    // Only render text parts that have actual content
                     if (part.type === "text" && part.text?.trim()) {
                       return (
                         <div
                           key={i}
                           className={cn(
-                            "rounded-2xl px-4 py-2.5",
+                            "px-4 py-3 shadow-lg",
                             message.role === "user"
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted"
+                              ? "bg-primary text-primary-foreground rounded-2xl rounded-br-md"
+                              : "bg-white/[0.03] border border-white/5 rounded-2xl rounded-bl-md"
                           )}
                         >
                           {message.role === "user" ? (
-                            <p className="text-sm whitespace-pre-wrap">{part.text}</p>
+                            <p className="text-sm font-medium leading-relaxed">{part.text}</p>
                           ) : (
-                            <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-table:my-2 prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-th:bg-muted-foreground/10 prose-tr:border-muted-foreground/20">
-                              <ReactMarkdown>{part.text}</ReactMarkdown>
+                            <div className="prose prose-sm prose-invert max-w-none prose-headings:font-display prose-headings:font-bold prose-a:text-primary prose-strong:text-primary prose-code:text-primary prose-code:bg-primary/10 prose-code:px-1 prose-code:rounded prose-pre:bg-black/40 prose-pre:border prose-pre:border-white/10">
+                              <ReactMarkdown 
+                                components={{
+                                  table: ({node, ...props}) => (
+                                    <div className="overflow-x-auto my-4 rounded-lg border border-white/10 bg-black/20">
+                                      <table className="w-full text-left text-xs" {...props} />
+                                    </div>
+                                  ),
+                                  thead: ({node, ...props}) => <thead className="bg-white/5 text-muted-foreground uppercase tracking-wider text-[10px]" {...props} />,
+                                  th: ({node, ...props}) => <th className="px-3 py-2 font-semibold border-b border-white/10" {...props} />,
+                                  td: ({node, ...props}) => <td className="px-3 py-2 border-b border-white/5" {...props} />,
+                                }}
+                              >
+                                {part.text}
+                              </ReactMarkdown>
                             </div>
                           )}
                         </div>
@@ -354,9 +402,7 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
 
                     if (part.type === "tool-invocation" || part.type?.startsWith("tool-")) {
                       const toolPart = part as {
-                        toolName?: string;
                         state?: string;
-                        args?: { hashtag?: string };
                         output?: {
                           creators?: CreatorResult[];
                           totalDiscovered?: number;
@@ -364,14 +410,13 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
                         };
                       };
 
-                      // Don't show tool call states - let the global loading indicator handle it
                       if (toolPart.state === "call" || toolPart.state === "partial-call") {
                         return null;
                       }
 
                       if (toolPart.state === "result" && toolPart.output?.creators) {
                         return (
-                          <div key={i} className="space-y-3">
+                          <div key={i} className="mt-3 space-y-3 w-full">
                             <ScoutProgress
                               data={{
                                 stage: "complete",
@@ -383,38 +428,28 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
                                 },
                               }}
                             />
-                            <div className="grid gap-3">
+                            <div className="grid gap-2">
                               {toolPart.output.creators.slice(0, 3).map((creator) => (
                                 <CreatorCard key={creator.username} creator={creator} />
                               ))}
                             </div>
+                            {toolPart.output.creators.length > 3 && (
+                              <p className="text-xs text-center text-muted-foreground">
+                                + {toolPart.output.creators.length - 3} more in sidebar
+                              </p>
+                            )}
                           </div>
                         );
                       }
-
                       return null;
                     }
-
-                    if (part.type === "data-tool-agent") {
-                      const toolData = part as { data?: { status?: string; text?: string } };
-                      return (
-                        <div key={i} className="rounded-lg bg-muted/50 p-3 text-sm">
-                          <p className="text-muted-foreground">
-                            {toolData.data?.text || "Processing..."}
-                          </p>
-                        </div>
-                      );
-                    }
-
                     return null;
                   })}
                 </div>
 
                 {message.role === "user" && (
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarFallback className="bg-secondary">
-                      <User className="h-4 w-4" />
-                    </AvatarFallback>
+                  <Avatar className="h-8 w-8 shrink-0 mt-1 ring-1 ring-white/10">
+                    <AvatarFallback className="bg-white/10 text-xs font-medium">ME</AvatarFallback>
                   </Avatar>
                 )}
               </div>
@@ -422,29 +457,43 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
           })}
 
           {isLoading && !hasCompletedToolResult(messages) && (
-            <div className="flex gap-3">
-              <Avatar className="h-8 w-8 shrink-0">
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  <Bot className="h-4 w-4" />
-                </AvatarFallback>
+            <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <Avatar className="h-8 w-8 shrink-0 mt-1 ring-1 ring-primary/30">
+                <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">AI</AvatarFallback>
               </Avatar>
-              <Card className="flex-1 max-w-md border-dashed">
+              <Card className="flex-1 max-w-sm border-primary/20 bg-primary/5 shadow-[0_0_20px_hsla(var(--primary)/0.1)]">
                 <CardHeader className="pb-2 pt-3 px-4">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    <CardTitle className="text-sm font-medium">
-                      {PROGRESS_STAGES[progressStage]?.message || "Processing..."}
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-primary font-display">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {PROGRESS_STAGES[progressStage].message}
                     </CardTitle>
+                    <span className="text-[10px] font-mono text-primary/80 bg-primary/10 px-2 py-0.5 rounded-full">
+                      {(elapsedTime / 1000).toFixed(1)}s
+                    </span>
                   </div>
                 </CardHeader>
-                <CardContent className="pb-3 px-4 space-y-2">
-                  <Progress 
-                    value={Math.min((progressStage + 1) / PROGRESS_STAGES.length * 100, 95)} 
-                    className="h-1.5" 
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {Math.floor(elapsedTime / 1000)}s elapsed • This may take a few minutes
-                  </p>
+                <CardContent className="pb-3 px-4">
+                  <Progress value={Math.min((elapsedTime / PROGRESS_STAGES[progressStage].duration) * 100, 100)} className="h-1 bg-primary/10" />
+                  <div className="mt-3 space-y-1">
+                    {PROGRESS_STAGES.slice(0, 4).map((stage, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "flex items-center gap-2 text-[10px] transition-all",
+                          i === progressStage ? "text-primary font-medium" :
+                          i < progressStage ? "text-muted-foreground/40 line-through" : "text-muted-foreground/20"
+                        )}
+                      >
+                        <div className={cn(
+                          "h-1 w-1 rounded-full",
+                          i === progressStage ? "bg-primary animate-pulse" :
+                          i < progressStage ? "bg-primary/30" : "bg-white/10"
+                        )} />
+                        {stage.message}
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -452,98 +501,29 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
         </div>
       </ScrollArea>
 
-      <div className="border-t bg-background p-4">
-        <div className="max-w-2xl mx-auto space-y-3">
-          {/* Search Config */}
-          <Collapsible open={configOpen} onOpenChange={setConfigOpen}>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="w-full justify-between text-muted-foreground hover:text-foreground">
-                <span className="flex items-center gap-2">
-                  <Settings2 className="h-3.5 w-3.5" />
-                  Search Settings
-                </span>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-xs">
-                    {SEARCH_DEPTH_OPTIONS.find(o => o.value === searchDepth)?.label.split(" ")[0]}
-                  </Badge>
-                  <Badge variant="secondary" className="text-xs">
-                    {creatorLimit} creators
-                  </Badge>
-                </div>
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-3">
-              <Card className="border-dashed">
-                <CardHeader className="pb-3 pt-4 px-4">
-                  <CardTitle className="text-sm">Search Configuration</CardTitle>
-                  <CardDescription className="text-xs">
-                    Adjust how many creators to search and analyze
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="px-4 pb-4 space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium">Search Depth</label>
-                    <div className="grid grid-cols-4 gap-2">
-                      {SEARCH_DEPTH_OPTIONS.map((option) => (
-                        <Button
-                          key={option.value}
-                          type="button"
-                          variant={searchDepth === option.value ? "default" : "outline"}
-                          size="sm"
-                          className="text-xs h-8"
-                          onClick={() => setSearchDepth(option.value)}
-                        >
-                          {option.value}
-                        </Button>
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      More posts = more creators found, but slower search
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium">Creators to Analyze</label>
-                    <div className="grid grid-cols-5 gap-2">
-                      {[3, 5, 10, 15, 20].map((num) => (
-                        <Button
-                          key={num}
-                          type="button"
-                          variant={creatorLimit === num ? "default" : "outline"}
-                          size="sm"
-                          className="text-xs h-8"
-                          onClick={() => setCreatorLimit(num)}
-                        >
-                          {num}
-                        </Button>
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      How many creators to analyze per niche
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </CollapsibleContent>
-          </Collapsible>
-
-          {/* Message Input */}
-          <form onSubmit={handleSubmit} className="flex gap-2">
-            <Input
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Describe the creators you're looking for..."
-              disabled={isLoading}
-              className="flex-1"
-            />
-            <Button type="submit" disabled={isLoading || !inputValue.trim()} size="icon">
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
-          </form>
-        </div>
+      {/* Input */}
+      <div className="p-4 sm:p-6 bg-gradient-to-t from-background via-background to-transparent">
+        <form onSubmit={handleSubmit} className="flex gap-2 max-w-3xl mx-auto relative group">
+          <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 rounded-2xl blur-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
+          <Input
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="Describe your ideal creator..."
+            className="flex-1 bg-card/80 border-white/10 focus-visible:ring-primary/30 h-12 rounded-xl px-4 text-sm shadow-xl backdrop-blur-sm relative z-10 placeholder:text-muted-foreground/50"
+            disabled={isLoading}
+          />
+          <Button 
+            type="submit" 
+            disabled={isLoading || !inputValue.trim()}
+            className="h-12 w-12 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-[0_0_15px_hsla(var(--primary)/0.3)] transition-all hover:scale-105 active:scale-95 relative z-10"
+          >
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
+          </Button>
+        </form>
       </div>
     </div>
   );
