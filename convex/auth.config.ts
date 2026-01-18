@@ -2,7 +2,7 @@
 // The domain should be your Clerk issuer URL, e.g., "https://your-app.clerk.accounts.dev"
 // You can find it in Clerk Dashboard > API Keys
 
-const domain = `***REMOVED***`;
+const domain = process.env.CLERK_JWT_ISSUER_DOMAIN;
 
 if (!domain) {
   console.warn(
