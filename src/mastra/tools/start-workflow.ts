@@ -66,8 +66,11 @@ export const startNicheWorkflowTool = createTool({
     savedToDb: z.number(),
     prospects: z.array(ProspectOutputSchema),
   }),
-  execute: async ({ context, writer }) => {
+  execute: async ({ context, runtimeContext, writer }) => {
     const { niche, minFollowers = 20000, maxFollowers = 150000, targetQualified = 3, searchDepth = 30 } = context;
+    
+    // Get userId from runtime context for Convex data isolation
+    const userId = runtimeContext?.get("userId") as string | undefined;
     
     // Over-fetch: analyze 5x the target to increase chances of hitting qualified count
     const fetchLimit = Math.max(targetQualified * 5, 10);
@@ -100,6 +103,7 @@ export const startNicheWorkflowTool = createTool({
         maxFollowers,
         limit: fetchLimit,
         searchDepth,
+        userId, // Pass userId for Convex data isolation
       },
     });
 

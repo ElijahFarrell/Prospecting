@@ -3,6 +3,7 @@ import { v } from "convex/values";
 
 export default defineSchema({
   prospects: defineTable({
+    userId: v.optional(v.string()), // Clerk user ID for data isolation (optional for legacy data)
     handle: v.string(),
     niche: v.string(),
     followerCount: v.number(),
@@ -24,16 +25,24 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index("by_user", ["userId"])
+    .index("by_user_niche", ["userId", "niche"])
+    .index("by_user_qualified", ["userId", "isQualified"])
+    .index("by_user_handle", ["userId", "handle"])
     .index("by_niche", ["niche"])
     .index("by_status", ["status"])
     .index("by_qualified", ["isQualified"])
     .index("by_handle", ["handle"]),
 
   threads: defineTable({
+    userId: v.optional(v.string()), // Clerk user ID for data isolation (optional for legacy data)
     title: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_updated", ["updatedAt"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_updated", ["userId", "updatedAt"])
+    .index("by_updated", ["updatedAt"]),
 
   messages: defineTable({
     threadId: v.id("threads"),

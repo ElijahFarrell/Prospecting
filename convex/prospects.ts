@@ -1,5 +1,37 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, QueryCtx, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
+
+/**
+ * Get the user ID, preferring explicitly passed userId over auth context.
+ * This allows server-side workflows to pass userId directly while
+ * client-side calls can rely on authentication.
+ */
+async function resolveUserId(
+  ctx: QueryCtx | MutationCtx, 
+  explicitUserId?: string
+): Promise<string | null> {
+  // If userId is explicitly provided (from server-side workflow), use it
+  if (explicitUserId) {
+    return explicitUserId;
+  }
+  // Otherwise try to get it from auth context (client-side calls)
+  const identity = await ctx.auth.getUserIdentity();
+  return identity?.subject || null;
+}
+
+/**
+ * Get user ID, throwing if neither explicit nor authenticated
+ */
+async function requireUserId(
+  ctx: QueryCtx | MutationCtx,
+  explicitUserId?: string
+): Promise<string> {
+  const userId = await resolveUserId(ctx, explicitUserId);
+  if (!userId) {
+    throw new Error("User ID required: provide userId or authenticate");
+  }
+  return userId;
+}
 
 export const saveProspect = mutation({
   args: {
@@ -21,25 +53,30 @@ export const saveProspect = mutation({
     locationTier: v.string(),
     status: v.string(),
     redFlags: v.optional(v.array(v.string())),
+    userId: v.optional(v.string()), // Allow explicit userId from server-side
   },
   handler: async (ctx, args) => {
+    const { userId: explicitUserId, ...prospectData } = args;
+    const userId = await requireUserId(ctx, explicitUserId);
     const now = Date.now();
     
+    // Check for existing prospect belonging to this user
     const existing = await ctx.db
       .query("prospects")
-      .filter((q) => q.eq(q.field("handle"), args.handle))
+      .withIndex("by_user_handle", (q) => q.eq("userId", userId).eq("handle", prospectData.handle))
       .first();
 
     if (existing) {
       await ctx.db.patch(existing._id, {
-        ...args,
+        ...prospectData,
         updatedAt: now,
       });
       return existing._id;
     }
 
     return await ctx.db.insert("prospects", {
-      ...args,
+      ...prospectData,
+      userId,
       createdAt: now,
       updatedAt: now,
     });
@@ -70,15 +107,18 @@ export const saveProspectsBatch = mutation({
         redFlags: v.optional(v.array(v.string())),
       })
     ),
+    userId: v.optional(v.string()), // Allow explicit userId from server-side
   },
   handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx, args.userId);
     const now = Date.now();
     const ids = [];
 
     for (const prospect of args.prospects) {
+      // Check for existing prospect belonging to this user
       const existing = await ctx.db
         .query("prospects")
-        .filter((q) => q.eq(q.field("handle"), prospect.handle))
+        .withIndex("by_user_handle", (q) => q.eq("userId", userId).eq("handle", prospect.handle))
         .first();
 
       if (existing) {
@@ -90,6 +130,7 @@ export const saveProspectsBatch = mutation({
       } else {
         const id = await ctx.db.insert("prospects", {
           ...prospect,
+          userId,
           createdAt: now,
           updatedAt: now,
         });
@@ -102,40 +143,65 @@ export const saveProspectsBatch = mutation({
 });
 
 export const getProspectsByNiche = query({
-  args: { niche: v.string() },
+  args: { 
+    niche: v.string(),
+    userId: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.userId);
+    if (!userId) return [];
+    
     return await ctx.db
       .query("prospects")
-      .withIndex("by_niche", (q) => q.eq("niche", args.niche))
+      .withIndex("by_user_niche", (q) => q.eq("userId", userId).eq("niche", args.niche))
       .collect();
   },
 });
 
 export const getQualifiedProspects = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    userId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.userId);
+    if (!userId) return [];
+    
     return await ctx.db
       .query("prospects")
-      .withIndex("by_qualified", (q) => q.eq("isQualified", true))
+      .withIndex("by_user_qualified", (q) => q.eq("userId", userId).eq("isQualified", true))
       .collect();
   },
 });
 
 export const getAllProspects = query({
-  args: {},
-  handler: async (ctx) => {
-    return await ctx.db.query("prospects").collect();
+  args: {
+    userId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.userId);
+    if (!userId) return [];
+    
+    return await ctx.db
+      .query("prospects")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
   },
 });
 
 export const getProspectsByHandles = query({
-  args: { handles: v.array(v.string()) },
+  args: { 
+    handles: v.array(v.string()),
+    userId: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.userId);
+    if (!userId) return [];
+    
     const results = [];
     for (const handle of args.handles) {
       const prospect = await ctx.db
         .query("prospects")
-        .withIndex("by_handle", (q) => q.eq("handle", handle))
+        .withIndex("by_user_handle", (q) => q.eq("userId", userId).eq("handle", handle))
         .first();
       if (prospect) {
         results.push(prospect);
@@ -146,13 +212,19 @@ export const getProspectsByHandles = query({
 });
 
 export const checkExistingHandles = query({
-  args: { handles: v.array(v.string()) },
+  args: { 
+    handles: v.array(v.string()),
+    userId: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
+    const userId = await resolveUserId(ctx, args.userId);
+    if (!userId) return [];
+    
     const existingHandles: string[] = [];
     for (const handle of args.handles) {
       const prospect = await ctx.db
         .query("prospects")
-        .withIndex("by_handle", (q) => q.eq("handle", handle))
+        .withIndex("by_user_handle", (q) => q.eq("userId", userId).eq("handle", handle))
         .first();
       if (prospect) {
         existingHandles.push(handle);
@@ -166,11 +238,14 @@ export const updateProspectStatus = mutation({
   args: {
     handle: v.string(),
     status: v.string(),
+    userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx, args.userId);
+    
     const prospect = await ctx.db
       .query("prospects")
-      .filter((q) => q.eq(q.field("handle"), args.handle))
+      .withIndex("by_user_handle", (q) => q.eq("userId", userId).eq("handle", args.handle))
       .first();
 
     if (prospect) {
@@ -181,4 +256,3 @@ export const updateProspectStatus = mutation({
     }
   },
 });
-

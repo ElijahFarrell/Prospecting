@@ -43,8 +43,11 @@ export const findLookalikesTool = createTool({
     disqualified: z.number(),
     prospects: z.array(ProspectOutputSchema),
   }),
-  execute: async ({ context, writer }) => {
+  execute: async ({ context, runtimeContext, writer }) => {
     const { sourceUsername, niche, minFollowers = 20000, maxFollowers = 150000, targetQualified = 3 } = context;
+    
+    // Get userId from runtime context for Convex data isolation
+    const userId = runtimeContext?.get("userId") as string | undefined;
 
     await writer?.custom({
       type: "workflow-progress",
@@ -102,6 +105,7 @@ export const findLookalikesTool = createTool({
         maxFollowers,
         limit: fetchLimit,
         searchDepth: 30, // Not used when usernames are provided directly
+        userId, // Pass userId for Convex data isolation
       },
     });
 

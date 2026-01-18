@@ -42,6 +42,7 @@ const scoutStep = createStep({
     maxFollowers: z.number().default(150000),
     limit: z.number().default(5),
     searchDepth: z.number().default(30),
+    userId: z.string().optional(),
   }),
   outputSchema: z.object({
     niche: z.string(),
@@ -59,9 +60,10 @@ const scoutStep = createStep({
       })
     ),
     skippedExisting: z.number(),
+    userId: z.string().optional(),
   }),
   execute: async ({ inputData }) => {
-    const { niche, hashtag, usernames: providedUsernames, minFollowers, maxFollowers, limit, searchDepth } = inputData;
+    const { niche, hashtag, usernames: providedUsernames, minFollowers, maxFollowers, limit, searchDepth, userId } = inputData;
 
     let usernamesToProcess: string[] = [];
     
@@ -74,11 +76,11 @@ const scoutStep = createStep({
       const { usernames: hashtagUsernames } = await searchHashtag(hashtag, searchDepth);
       usernamesToProcess = hashtagUsernames;
     } else {
-      return { niche, candidates: [], skippedExisting: 0 };
+      return { niche, candidates: [], skippedExisting: 0, userId };
     }
     
-    // Deduplication: Check which handles already exist in Convex
-    const existingHandles = await checkExistingHandles(usernamesToProcess);
+    // Deduplication: Check which handles already exist in Convex (pass userId for user-scoped check)
+    const existingHandles = await checkExistingHandles(usernamesToProcess, userId);
     
     // Filter out existing handles
     const newUsernames = usernamesToProcess.filter((u) => !existingHandles.includes(u));
@@ -113,7 +115,7 @@ const scoutStep = createStep({
       });
     }
 
-    return { niche, candidates, skippedExisting };
+    return { niche, candidates, skippedExisting, userId };
   },
 });
 
@@ -139,6 +141,7 @@ const qualifyStep = createStep({
       })
     ),
     skippedExisting: z.number(),
+    userId: z.string().optional(),
   }),
   outputSchema: z.object({
     niche: z.string(),
@@ -160,9 +163,10 @@ const qualifyStep = createStep({
       })
     ),
     skippedExisting: z.number(),
+    userId: z.string().optional(),
   }),
   execute: async ({ inputData }) => {
-    const { niche, candidates } = inputData;
+    const { niche, candidates, userId } = inputData;
     const qualified = [];
 
     // Run LLM analysis in parallel for speed
@@ -209,7 +213,7 @@ const qualifyStep = createStep({
       }
     }
 
-    return { niche, qualified, skippedExisting: inputData.skippedExisting };
+    return { niche, qualified, skippedExisting: inputData.skippedExisting, userId };
   },
 });
 
@@ -239,6 +243,7 @@ const enrichStep = createStep({
       })
     ),
     skippedExisting: z.number(),
+    userId: z.string().optional(),
   }),
   outputSchema: z.object({
     niche: z.string(),
@@ -247,7 +252,7 @@ const enrichStep = createStep({
     savedToDb: z.number(),
   }),
   execute: async ({ inputData }) => {
-    const { niche, qualified } = inputData;
+    const { niche, qualified, userId } = inputData;
     const prospects: Prospect[] = [];
 
     // Separate qualified and disqualified
@@ -326,7 +331,7 @@ const enrichStep = createStep({
     const qualifiedProspects = await Promise.all(profilePromises);
     prospects.push(...qualifiedProspects);
 
-    // Save all prospects to Convex
+    // Save all prospects to Convex (pass userId for data isolation)
     const savedToDb = await saveProspectsBatch(
       prospects.map((p) => ({
         handle: p.handle,
@@ -347,7 +352,8 @@ const enrichStep = createStep({
         locationTier: p.locationTier,
         status: p.status,
         redFlags: p.redFlags,
-      }))
+      })),
+      userId
     );
 
     return { niche, prospects, skippedExisting: inputData.skippedExisting, savedToDb };
@@ -364,6 +370,7 @@ export const prospectingWorkflow = createWorkflow({
     maxFollowers: z.number().default(150000),
     limit: z.number().default(5),
     searchDepth: z.number().default(30),
+    userId: z.string().optional(),
   }),
   outputSchema: z.object({
     niche: z.string(),

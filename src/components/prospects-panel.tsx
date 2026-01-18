@@ -141,8 +141,9 @@ interface ProspectsPanelProps {
 
 export function ProspectsPanel({ className, onFindSimilar }: ProspectsPanelProps) {
   // Convex hooks - always called unconditionally
-  const allProspects = useQuery(api.prospects.getAllProspects);
-  const qualifiedProspects = useQuery(api.prospects.getQualifiedProspects);
+  // Pass empty object for args (userId comes from auth context for client-side)
+  const allProspects = useQuery(api.prospects.getAllProspects, {});
+  const qualifiedProspects = useQuery(api.prospects.getQualifiedProspects, {});
 
   const isLoading = allProspects === undefined;
   const qualified = (qualifiedProspects || []) as Prospect[];

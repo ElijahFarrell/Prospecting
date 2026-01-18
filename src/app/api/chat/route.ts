@@ -2,11 +2,19 @@ import { mastra } from "@/mastra";
 import { createUIMessageStreamResponse, type UIMessageChunk, type UIDataTypes } from "ai";
 import { toAISdkFormat } from "@mastra/ai-sdk";
 import { searchMemories, formatMemoriesForContext, isMem0Configured } from "@/lib/mem0";
+import { auth } from "@clerk/nextjs/server";
+import { RuntimeContext } from "@mastra/core/runtime-context";
 
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
   const { messages } = await req.json();
+  
+  // Get the authenticated user's ID from Clerk
+  const { userId } = await auth();
+  if (!userId) {
+    return new Response("Unauthorized", { status: 401 });
+  }
 
   // Get the latest user message to search for relevant memories
   const lastUserMessage = messages
@@ -41,8 +49,12 @@ export async function POST(req: Request) {
       ]
     : messages;
 
+  // Create runtime context with userId for tools
+  const runtimeContext = new RuntimeContext<{ userId: string }>();
+  runtimeContext.set("userId", userId);
+
   const agent = mastra.getAgent("orchestratorAgent");
-  const stream = await agent.stream(messagesWithContext);
+  const stream = await agent.stream(messagesWithContext, { runtimeContext });
 
   const aiSdkStream = toAISdkFormat(stream, { from: "agent" }) as unknown as ReadableStream<UIMessageChunk<unknown, UIDataTypes>>;
 
