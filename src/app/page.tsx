@@ -9,7 +9,7 @@ import { ChatHistory } from "@/components/chat-history";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Bug, Sparkles, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, TestTube2, Loader2 } from "lucide-react";
+import { Bug, Sparkles, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, TestTube2, Loader2, Users, Settings } from "lucide-react";
 import Link from "next/link";
 import type { CreatorResult } from "@/mastra/tools";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -62,9 +62,9 @@ export default function HomePage() {
                   <Sparkles className="h-6 w-6 text-primary-foreground" />
                 </div>
               </div>
-              <CardTitle className="text-2xl">Creator Scout</CardTitle>
+              <CardTitle className="text-2xl">Shiloh Prospecting</CardTitle>
               <CardDescription>
-                AI-powered Instagram creator prospecting engine
+                AI-powered creator prospecting by Shiloh AI
               </CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center">
@@ -117,8 +117,8 @@ export default function HomePage() {
                   <Sparkles className="h-5 w-5 text-primary-foreground" />
                 </div>
                 <div>
-                  <h1 className="font-display font-bold text-lg tracking-tight">Creator Scout</h1>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Intelligence Engine</p>
+                  <h1 className="font-display font-bold text-lg tracking-tight">Shiloh Prospecting</h1>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">by Shiloh AI</p>
                 </div>
               </div>
             </div>
@@ -131,6 +131,18 @@ export default function HomePage() {
                 </span>
               )}
               <div className="flex items-center gap-1 bg-white/5 p-1 rounded-lg border border-white/5">
+                <Button variant="ghost" size="sm" asChild className="h-8 hover:bg-white/5 hover:text-primary">
+                  <Link href="/prospects">
+                    <Users className="h-4 w-4 mr-2" />
+                    Prospects
+                  </Link>
+                </Button>
+                <Button variant="ghost" size="sm" asChild className="h-8 hover:bg-white/5 hover:text-primary">
+                  <Link href="/settings">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </Link>
+                </Button>
                 <Button variant="ghost" size="sm" asChild className="h-8 hover:bg-white/5 hover:text-primary">
                   <Link href="/test">
                     <TestTube2 className="h-4 w-4 mr-2" />

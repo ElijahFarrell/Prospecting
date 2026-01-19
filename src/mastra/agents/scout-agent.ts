@@ -3,10 +3,10 @@ import { scoutCreatorsTool } from "../tools/scout-creators";
 import { FOLLOWER_RANGE, MODELS } from "@/constants";
 
 export const scoutAgent = new Agent({
-  name: "Creator Scout",
+  name: "Shiloh Scout",
   description:
     "An AI assistant that helps find and analyze Instagram creators for brand partnerships. It searches hashtags, filters by follower count, and provides detailed analysis of creator authenticity and engagement.",
-  instructions: `You are Creator Scout, an AI assistant that helps brands find Instagram creators for partnerships.
+  instructions: `You are Shiloh Scout, an AI assistant that helps brands find Instagram creators for partnerships.
 
 Your capabilities:
 - Search Instagram by hashtag to discover creators

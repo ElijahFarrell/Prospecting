@@ -141,7 +141,7 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
 
   useEffect(() => {
     if (storedMessages && storedMessages.length > 0) {
-      const loadedMessages = storedMessages.map((msg, idx) => ({
+      const loadedMessages = storedMessages.map((msg: { _id?: string; role: string; content: string; parts?: unknown }, idx: number) => ({
         id: msg._id || `stored-${idx}`,
         role: msg.role as "user" | "assistant",
         content: msg.content,
@@ -314,10 +314,10 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
                 <Sparkles className="h-10 w-10 text-primary relative z-10" />
               </div>
               <h3 className="text-2xl font-display font-bold text-foreground">
-                Creator Scout
+                Shiloh Prospecting
               </h3>
               <p className="mt-3 max-w-md text-sm text-muted-foreground leading-relaxed">
-                Describe your ideal creator. I'll coordinate specialized agents to scout, analyze, and qualify prospects.
+                Tell me what creators you're looking for. I'll coordinate AI agents to scout, analyze, and qualify prospects.
               </p>
               <div className="mt-8 grid gap-2 w-full max-w-sm">
                 {[

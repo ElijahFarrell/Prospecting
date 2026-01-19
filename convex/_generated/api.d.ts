@@ -10,6 +10,7 @@
 
 import type * as chats from "../chats.js";
 import type * as prospects from "../prospects.js";
+import type * as settings from "../settings.js";
 
 import type {
   ApiFromModules,
@@ -20,6 +21,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   chats: typeof chats;
   prospects: typeof prospects;
+  settings: typeof settings;
 }>;
 
 /**

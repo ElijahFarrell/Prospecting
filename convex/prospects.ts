@@ -256,3 +256,82 @@ export const updateProspectStatus = mutation({
     }
   },
 });
+
+export const updateProspect = mutation({
+  args: {
+    id: v.id("prospects"),
+    status: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    lastContactedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+
+    const prospect = await ctx.db.get(args.id);
+    if (!prospect || prospect.userId !== userId) {
+      throw new Error("Prospect not found or unauthorized");
+    }
+
+    const updates: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.status !== undefined) updates.status = args.status;
+    if (args.notes !== undefined) updates.notes = args.notes;
+    if (args.lastContactedAt !== undefined) updates.lastContactedAt = args.lastContactedAt;
+
+    await ctx.db.patch(args.id, updates);
+    return args.id;
+  },
+});
+
+export const deleteProspect = mutation({
+  args: {
+    id: v.id("prospects"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+
+    const prospect = await ctx.db.get(args.id);
+    if (!prospect || prospect.userId !== userId) {
+      throw new Error("Prospect not found or unauthorized");
+    }
+
+    await ctx.db.delete(args.id);
+  },
+});
+
+export const getProspectById = query({
+  args: {
+    id: v.id("prospects"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    const userId = identity.subject;
+
+    const prospect = await ctx.db.get(args.id);
+    if (!prospect || prospect.userId !== userId) {
+      return null;
+    }
+
+    return prospect;
+  },
+});
+
+export const getProspectsByStatus = query({
+  args: {
+    status: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+    const userId = identity.subject;
+
+    return await ctx.db
+      .query("prospects")
+      .withIndex("by_user_status", (q) => q.eq("userId", userId).eq("status", args.status))
+      .collect();
+  },
+});

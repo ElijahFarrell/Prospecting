@@ -20,8 +20,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Creator Scout",
-  description: "AI-powered Instagram creator prospecting engine",
+  title: "Shiloh Prospecting",
+  description: "AI-powered creator prospecting by Shiloh AI",
 };
 
 export default function RootLayout({

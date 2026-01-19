@@ -20,8 +20,12 @@ export default defineSchema({
     profilePicUrl: v.optional(v.string()),
     isVerified: v.boolean(),
     locationTier: v.string(),
-    status: v.string(),
+    // Status for tracking outreach pipeline
+    status: v.string(), // "New" | "Qualified" | "Outreached" | "In Discussion" | "Closed"
     redFlags: v.optional(v.array(v.string())),
+    // User notes for tracking
+    notes: v.optional(v.string()),
+    lastContactedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -29,6 +33,7 @@ export default defineSchema({
     .index("by_user_niche", ["userId", "niche"])
     .index("by_user_qualified", ["userId", "isQualified"])
     .index("by_user_handle", ["userId", "handle"])
+    .index("by_user_status", ["userId", "status"])
     .index("by_niche", ["niche"])
     .index("by_status", ["status"])
     .index("by_qualified", ["isQualified"])
@@ -51,4 +56,23 @@ export default defineSchema({
     parts: v.optional(v.any()),
     createdAt: v.number(),
   }).index("by_thread", ["threadId", "createdAt"]),
+
+  // User settings for configurable agent prompts and preferences
+  settings: defineTable({
+    userId: v.string(),
+    // Agent prompt customization
+    orchestratorPrompt: v.optional(v.string()),
+    scoutPrompt: v.optional(v.string()),
+    analystPrompt: v.optional(v.string()),
+    profilerPrompt: v.optional(v.string()),
+    // Default search parameters
+    defaultMinFollowers: v.optional(v.number()),
+    defaultMaxFollowers: v.optional(v.number()),
+    defaultSearchDepth: v.optional(v.number()),
+    defaultTargetQualified: v.optional(v.number()),
+    // Preferences
+    preferredNiches: v.optional(v.array(v.string())),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
 });
