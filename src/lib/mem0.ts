@@ -11,9 +11,6 @@ if (mem0ApiKey) {
 
 export const isMem0Configured = !!mem0ApiKey;
 
-// Default user ID for prospecting sessions (can be extended for multi-user)
-const DEFAULT_USER_ID = "prospecting-agent";
-
 export interface Memory {
   id: string;
   memory: string;
@@ -24,14 +21,20 @@ export interface Memory {
 
 /**
  * Add a new memory about prospecting learnings
- * Mem0 expects messages in chat format, so we wrap the content
+ * Each memory is tied to a specific user for multi-tenancy
  */
 export async function addMemory(
   content: string,
+  userId: string,
   metadata?: Record<string, unknown>
 ): Promise<Memory | null> {
   if (!memoryClient) {
     console.warn("Mem0 not configured - skipping memory storage");
+    return null;
+  }
+
+  if (!userId) {
+    console.warn("No userId provided - skipping memory storage");
     return null;
   }
 
@@ -43,7 +46,7 @@ export async function addMemory(
     ];
     
     const result = await memoryClient.add(messages, {
-      user_id: DEFAULT_USER_ID,
+      user_id: userId,
       metadata: {
         ...metadata,
         source: "prospecting-engine",
@@ -59,18 +62,24 @@ export async function addMemory(
 
 /**
  * Search for relevant memories based on a query
+ * Results are scoped to the specific user
  */
 export async function searchMemories(
   query: string,
+  userId: string,
   limit: number = 5
 ): Promise<Memory[]> {
   if (!memoryClient) {
     return [];
   }
 
+  if (!userId) {
+    return [];
+  }
+
   try {
     const results = await memoryClient.search(query, {
-      user_id: DEFAULT_USER_ID,
+      user_id: userId,
       limit,
     });
     return (results as unknown as { results?: Memory[] })?.results || [];
@@ -81,16 +90,20 @@ export async function searchMemories(
 }
 
 /**
- * Get all stored memories for the prospecting agent
+ * Get all stored memories for a specific user
  */
-export async function getAllMemories(): Promise<Memory[]> {
+export async function getAllMemories(userId: string): Promise<Memory[]> {
   if (!memoryClient) {
+    return [];
+  }
+
+  if (!userId) {
     return [];
   }
 
   try {
     const results = await memoryClient.getAll({
-      user_id: DEFAULT_USER_ID,
+      user_id: userId,
     });
     return (results as unknown as { results?: Memory[] })?.results || [];
   } catch (error) {
@@ -112,7 +125,7 @@ export function formatMemoriesForContext(memories: Memory[]): string {
     .join("\n");
 
   return `
-LEARNED FROM PREVIOUS SESSIONS:
+LEARNED FROM YOUR PREVIOUS SESSIONS:
 ${formatted}
 
 Use these learnings to improve your recommendations.
@@ -143,4 +156,3 @@ export function extractLearningsFromResults(
 
   return parts.join(" ");
 }
-

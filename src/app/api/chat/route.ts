@@ -30,7 +30,7 @@ export async function POST(req: Request) {
         lastUserMessage.parts?.find((p: { type: string }) => p.type === "text")?.text || "";
       
       if (userText) {
-        const relevantMemories = await searchMemories(userText, 5);
+        const relevantMemories = await searchMemories(userText, userId, 5);
         memoryContext = formatMemoriesForContext(relevantMemories);
       }
     } catch (error) {

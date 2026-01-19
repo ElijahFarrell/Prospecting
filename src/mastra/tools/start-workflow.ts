@@ -140,8 +140,8 @@ export const startNicheWorkflowTool = createTool({
     // Return top qualified + all disqualified for context
     const returnProspects = [...topQualified, ...disqualifiedProspects];
 
-    // Save learnings to Mem0 if configured
-    if (isMem0Configured && topQualified.length > 0) {
+    // Save learnings to Mem0 if configured and we have a userId
+    if (isMem0Configured && topQualified.length > 0 && userId) {
       const learning = extractLearningsFromResults(
         niche,
         topQualified.length,
@@ -152,8 +152,8 @@ export const startNicheWorkflowTool = createTool({
           : undefined
       );
       
-      // Fire and forget - don't block on memory storage
-      addMemory(learning, { niche, qualified: topQualified.length }).catch(() => {});
+      // Fire and forget - don't block on memory storage (now per-user)
+      addMemory(learning, userId, { niche, qualified: topQualified.length }).catch(() => {});
     }
 
     return {
