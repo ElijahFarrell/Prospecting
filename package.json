@@ -36,6 +36,7 @@
     "lucide-react": "^0.400.0",
     "mem0ai": "^2.2.1",
     "next": "^15.0.0",
+    "p-limit": "^7.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",

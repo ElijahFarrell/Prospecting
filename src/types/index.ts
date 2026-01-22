@@ -108,3 +108,23 @@ export interface ScoutingResult {
   progress: ScoutingProgress;
 }
 
+export interface MessageVariations {
+  methodA: {
+    variations: string[];
+    valueAssetDescription: string;
+  };
+  methodB: {
+    openers: string[];
+    pivotMessage: string;
+    valueAssetDescription: string;
+  };
+}
+
+export type MessageStatus = "pending" | "sent" | "drafted";
+
+export interface SelectedMessage {
+  method: "A" | "B";
+  variationIndex: number;
+  text: string;
+}
+

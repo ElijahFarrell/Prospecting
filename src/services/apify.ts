@@ -1,6 +1,7 @@
 import { ApifyClient } from "apify-client";
 import { APIFY_ACTORS } from "@/constants";
 import type { InstagramProfile, InstagramComment } from "@/types";
+import pLimit from "p-limit";
 
 const client = new ApifyClient({
   token: process.env.APIFY_API_TOKEN,
@@ -16,7 +17,13 @@ interface HashtagSearchResult {
   }>;
 }
 
-export async function searchHashtag(hashtag: string, maxItems: number = 30): Promise<HashtagSearchResult> {
+const limit = pLimit(5);
+
+export async function searchHashtagsBatch(hashtags: string[], maxItems: number = 60): Promise<HashtagSearchResult[]> {
+  return Promise.all(hashtags.map((hashtag) => limit(() => searchHashtag(hashtag, maxItems))));
+}
+
+export async function searchHashtag(hashtag: string, maxItems: number = 60): Promise<HashtagSearchResult> {
   const cleanHashtag = hashtag.replace("#", "").toLowerCase();
   const hashtagUrl = `https://www.instagram.com/explore/tags/${cleanHashtag}/`;
 

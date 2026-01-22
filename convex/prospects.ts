@@ -335,3 +335,55 @@ export const getProspectsByStatus = query({
       .collect();
   },
 });
+
+export const updateProspectMessages = mutation({
+  args: {
+    id: v.id("prospects"),
+    messageVariations: v.optional(
+      v.object({
+        methodA: v.object({
+          variations: v.array(v.string()),
+          valueAssetDescription: v.string(),
+        }),
+        methodB: v.object({
+          openers: v.array(v.string()),
+          pivotMessage: v.string(),
+          valueAssetDescription: v.string(),
+        }),
+      })
+    ),
+    selectedMessage: v.optional(
+      v.object({
+        method: v.union(v.literal("A"), v.literal("B")),
+        variationIndex: v.number(),
+        text: v.string(),
+      })
+    ),
+    messageStatus: v.optional(v.union(v.literal("pending"), v.literal("sent"), v.literal("drafted"))),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthorized");
+    const userId = identity.subject;
+
+    const prospect = await ctx.db.get(args.id);
+    if (!prospect || prospect.userId !== userId) {
+      throw new Error("Prospect not found or unauthorized");
+    }
+
+    const updates: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.messageVariations !== undefined) {
+      updates.messageVariations = args.messageVariations;
+      updates.messageGeneratedAt = Date.now();
+    }
+    if (args.selectedMessage !== undefined) {
+      updates.selectedMessage = args.selectedMessage;
+    }
+    if (args.messageStatus !== undefined) {
+      updates.messageStatus = args.messageStatus;
+    }
+
+    await ctx.db.patch(args.id, updates);
+    return args.id;
+  },
+});

@@ -43,8 +43,10 @@ import {
   Star,
   Search,
   SlidersHorizontal,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ProspectDMCard } from "./prospect-dm-card";
 
 const STATUS_OPTIONS = [
   { value: "New", label: "New", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
@@ -66,12 +68,32 @@ interface Prospect {
   isQualified: boolean;
   disqualificationReason?: string;
   outreachAngle?: string;
+  monetizationGap?: string;
+  recentPostSummary?: string;
   bio?: string;
   profilePicUrl?: string;
   isVerified: boolean;
   status: string;
   notes?: string;
   lastContactedAt?: number;
+  messageVariations?: {
+    methodA: {
+      variations: string[];
+      valueAssetDescription: string;
+    };
+    methodB: {
+      openers: string[];
+      pivotMessage: string;
+      valueAssetDescription: string;
+    };
+  };
+  selectedMessage?: {
+    method: "A" | "B";
+    variationIndex: number;
+    text: string;
+  };
+  messageStatus?: "pending" | "sent" | "drafted";
+  instagramUserId?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -120,6 +142,7 @@ export function ProspectsTable() {
   const [prospectToDelete, setProspectToDelete] = useState<Prospect | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
+  const [dmCardKey, setDmCardKey] = useState(0); // Force re-render when prospect changes
 
   const isLoading = prospects === undefined;
   const allProspects = (prospects || []) as Prospect[];
@@ -369,10 +392,26 @@ export function ProspectsTable() {
                           onClick={() => {
                             setSelectedProspect(prospect);
                             setDetailDialogOpen(true);
+                            setDmCardKey((k) => k + 1);
                           }}
                         >
                           <MessageSquare className="h-4 w-4" />
                         </Button>
+                        {prospect.isQualified && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-primary/20 hover:text-primary"
+                            onClick={() => {
+                              setSelectedProspect(prospect);
+                              setDetailDialogOpen(true);
+                              setDmCardKey((k) => k + 1);
+                            }}
+                            title="Open DM Messages"
+                          >
+                            <Send className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -420,10 +459,10 @@ export function ProspectsTable() {
 
       {/* Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="bg-card/95 backdrop-blur-xl border-white/10 max-w-lg">
+        <DialogContent className="bg-card/95 backdrop-blur-xl border-white/10 max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           {selectedProspect && (
             <>
-              <DialogHeader>
+              <DialogHeader className="shrink-0">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-12 w-12 ring-2 ring-white/10">
                     {selectedProspect.profilePicUrl && (
@@ -439,46 +478,63 @@ export function ProspectsTable() {
                   </div>
                 </div>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                    <div className="text-lg font-bold">{formatFollowers(selectedProspect.followerCount)}</div>
-                    <div className="text-xs text-muted-foreground">Followers</div>
+              <ScrollArea className="flex-1 pr-4">
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                      <div className="text-lg font-bold">{formatFollowers(selectedProspect.followerCount)}</div>
+                      <div className="text-xs text-muted-foreground">Followers</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                      <div className="text-lg font-bold">{selectedProspect.engagementRate.toFixed(1)}%</div>
+                      <div className="text-xs text-muted-foreground">Engagement</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                      <div className="text-lg font-bold">{selectedProspect.transformationScore}/10</div>
+                      <div className="text-xs text-muted-foreground">Score</div>
+                    </div>
                   </div>
-                  <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                    <div className="text-lg font-bold">{selectedProspect.engagementRate.toFixed(1)}%</div>
-                    <div className="text-xs text-muted-foreground">Engagement</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                    <div className="text-lg font-bold">{selectedProspect.transformationScore}/10</div>
-                    <div className="text-xs text-muted-foreground">Score</div>
-                  </div>
+                  {selectedProspect.bio && (
+                    <div>
+                      <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Bio</h4>
+                      <p className="text-sm">{selectedProspect.bio}</p>
+                    </div>
+                  )}
+                  {selectedProspect.outreachAngle && (
+                    <div>
+                      <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Outreach Angle</h4>
+                      <p className="text-sm text-primary">{selectedProspect.outreachAngle}</p>
+                    </div>
+                  )}
+                  {selectedProspect.disqualificationReason && (
+                    <div>
+                      <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Disqualification Reason</h4>
+                      <p className="text-sm text-rose-400">{selectedProspect.disqualificationReason}</p>
+                    </div>
+                  )}
+                  {selectedProspect.lastContactedAt && (
+                    <div className="text-xs text-muted-foreground">
+                      Last contacted: {formatDate(selectedProspect.lastContactedAt)}
+                    </div>
+                  )}
+
+                  {/* DM Message Section */}
+                  {selectedProspect.isQualified && (
+                    <div>
+                      <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-3">DM Message</h4>
+                      <ProspectDMCard
+                        key={dmCardKey}
+                        prospect={selectedProspect}
+                        onStatusChange={() => {
+                          // Refresh prospect data
+                          setDmCardKey((k) => k + 1);
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
-                {selectedProspect.bio && (
-                  <div>
-                    <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Bio</h4>
-                    <p className="text-sm">{selectedProspect.bio}</p>
-                  </div>
-                )}
-                {selectedProspect.outreachAngle && (
-                  <div>
-                    <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Outreach Angle</h4>
-                    <p className="text-sm text-primary">{selectedProspect.outreachAngle}</p>
-                  </div>
-                )}
-                {selectedProspect.disqualificationReason && (
-                  <div>
-                    <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Disqualification Reason</h4>
-                    <p className="text-sm text-rose-400">{selectedProspect.disqualificationReason}</p>
-                  </div>
-                )}
-                {selectedProspect.lastContactedAt && (
-                  <div className="text-xs text-muted-foreground">
-                    Last contacted: {formatDate(selectedProspect.lastContactedAt)}
-                  </div>
-                )}
-              </div>
-              <DialogFooter className="gap-2">
+              </ScrollArea>
+              <DialogFooter className="gap-2 shrink-0 border-t border-white/10 pt-4 mt-4">
                 <Button
                   variant="outline"
                   className="border-white/10"

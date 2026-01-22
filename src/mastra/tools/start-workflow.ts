@@ -83,14 +83,13 @@ export const startNicheWorkflowTool = createTool({
     });
 
     const hashtags = getHashtagsForNiche(niche);
-    const hashtag = hashtags[0];
 
     await writer?.custom({
       type: "workflow-progress",
       stage: "searching",
-      message: `Searching #${hashtag} for ${niche} creators (analyzing up to ${fetchLimit})...`,
+      message: `Searching ${hashtags.length} hashtag${hashtags.length > 1 ? 's' : ''} (${hashtags.map(h => `#${h}`).join(', ')}) for ${niche} creators (analyzing up to ${fetchLimit})...`,
       niche,
-      hashtag,
+      hashtag: hashtags[0], // Keep for backward compatibility
     });
 
     const run = await prospectingWorkflow.createRunAsync();
@@ -98,7 +97,7 @@ export const startNicheWorkflowTool = createTool({
     const result = await run.start({
       inputData: {
         niche,
-        hashtag,
+        hashtags, // Pass all hashtags for batch search
         minFollowers,
         maxFollowers,
         limit: fetchLimit,

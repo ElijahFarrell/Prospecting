@@ -26,6 +26,30 @@ export default defineSchema({
     // User notes for tracking
     notes: v.optional(v.string()),
     lastContactedAt: v.optional(v.number()),
+    // DM Message fields
+    messageVariations: v.optional(
+      v.object({
+        methodA: v.object({
+          variations: v.array(v.string()),
+          valueAssetDescription: v.string(),
+        }),
+        methodB: v.object({
+          openers: v.array(v.string()),
+          pivotMessage: v.string(),
+          valueAssetDescription: v.string(),
+        }),
+      })
+    ),
+    selectedMessage: v.optional(
+      v.object({
+        method: v.union(v.literal("A"), v.literal("B")),
+        variationIndex: v.number(),
+        text: v.string(),
+      })
+    ),
+    messageGeneratedAt: v.optional(v.number()),
+    messageStatus: v.optional(v.union(v.literal("pending"), v.literal("sent"), v.literal("drafted"))),
+    instagramUserId: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

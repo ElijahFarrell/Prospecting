@@ -1,6 +1,6 @@
 import { createWorkflow, createStep } from "@mastra/core/workflows";
 import { z } from "zod";
-import { searchHashtag, getProfilesBatch } from "@/services/apify";
+import { searchHashtagsBatch, getProfilesBatch } from "@/services/apify";
 import { analyzeCreatorWithAgent, profileCreatorWithAgent } from "@/services/agent-analyst";
 import { checkExistingHandles, saveProspectsBatch } from "@/lib/convex-queries";
 
@@ -28,15 +28,16 @@ const ProspectSchema = z.object({
 export type Prospect = z.infer<typeof ProspectSchema>;
 
 /**
- * STEP 1: Scout - Search hashtag OR use provided usernames, then batch fetch profiles
- * OPTIMIZED: Single Apify call for all profiles instead of N calls
- * FLEXIBLE: Can accept either hashtag (for discovery) or usernames array (for lookalikes)
+ * STEP 1: Scout - Search hashtags OR use provided usernames, then batch fetch profiles
+ * OPTIMIZED: Batch hashtag searches in parallel, single Apify call for all profiles
+ * FLEXIBLE: Can accept either hashtags array (for discovery) or usernames array (for lookalikes)
  */
 const scoutStep = createStep({
   id: "scout",
   inputSchema: z.object({
     niche: z.string(),
-    hashtag: z.string().optional(),
+    hashtag: z.string().optional(), // Deprecated: use hashtags instead
+    hashtags: z.array(z.string()).optional(), // New: support multiple hashtags
     usernames: z.array(z.string()).optional(),
     minFollowers: z.number().default(20000),
     maxFollowers: z.number().default(150000),
@@ -63,20 +64,33 @@ const scoutStep = createStep({
     userId: z.string().optional(),
   }),
   execute: async ({ inputData }) => {
-    const { niche, hashtag, usernames: providedUsernames, minFollowers, maxFollowers, limit, searchDepth, userId } = inputData;
+    const { niche, hashtag, hashtags, usernames: providedUsernames, minFollowers, maxFollowers, limit, searchDepth, userId } = inputData;
 
     let usernamesToProcess: string[] = [];
     
     // If usernames are directly provided (e.g., from lookalike search), use them
-    // Otherwise, search by hashtag
+    // Otherwise, search by hashtags (batch search for better coverage)
     if (providedUsernames && providedUsernames.length > 0) {
       usernamesToProcess = providedUsernames;
-    } else if (hashtag) {
-      // 1 Apify call for hashtag search with configurable depth
-      const { usernames: hashtagUsernames } = await searchHashtag(hashtag, searchDepth);
-      usernamesToProcess = hashtagUsernames;
     } else {
-      return { niche, candidates: [], skippedExisting: 0, userId };
+      // Support both old single hashtag and new multiple hashtags
+      const hashtagsToSearch = hashtags || (hashtag ? [hashtag] : []);
+      
+      if (hashtagsToSearch.length > 0) {
+        // Batch search all hashtags in parallel
+        const hashtagResults = await searchHashtagsBatch(hashtagsToSearch, searchDepth);
+        
+        // Merge all usernames from all hashtag searches, deduplicate
+        const usernameSet = new Set<string>();
+        for (const result of hashtagResults) {
+          for (const username of result.usernames) {
+            usernameSet.add(username);
+          }
+        }
+        usernamesToProcess = Array.from(usernameSet);
+      } else {
+        return { niche, candidates: [], skippedExisting: 0, userId };
+      }
     }
     
     // Deduplication: Check which handles already exist in Convex (pass userId for user-scoped check)
@@ -305,7 +319,7 @@ const enrichStep = createStep({
           profilePicUrl: creator.profilePicUrl,
           isVerified: creator.isVerified,
           locationTier: "Tier 1",
-          status: "New",
+          status: "Qualified",
           redFlags: creator.redFlags,
         } as Prospect;
       } catch {
@@ -364,7 +378,8 @@ export const prospectingWorkflow = createWorkflow({
   id: "prospecting-workflow",
   inputSchema: z.object({
     niche: z.string(),
-    hashtag: z.string().optional(),
+    hashtag: z.string().optional(), // Deprecated: use hashtags instead
+    hashtags: z.array(z.string()).optional(), // New: support multiple hashtags
     usernames: z.array(z.string()).optional(),
     minFollowers: z.number().default(20000),
     maxFollowers: z.number().default(150000),
