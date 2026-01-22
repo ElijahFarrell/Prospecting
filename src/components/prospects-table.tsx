@@ -526,8 +526,19 @@ export function ProspectsTable() {
                         key={dmCardKey}
                         prospect={selectedProspect}
                         onStatusChange={() => {
-                          // Refresh prospect data
-                          setDmCardKey((k) => k + 1);
+                          // Find the updated prospect from the reactive query
+                          // Use setTimeout to ensure Convex query has updated
+                          setTimeout(() => {
+                            if (selectedProspect && prospects) {
+                              const updatedProspect = prospects.find(
+                                (p) => p._id === selectedProspect._id
+                              );
+                              if (updatedProspect) {
+                                setSelectedProspect(updatedProspect);
+                                setDmCardKey((k) => k + 1);
+                              }
+                            }
+                          }, 100);
                         }}
                       />
                     </div>
