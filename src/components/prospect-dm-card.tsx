@@ -290,14 +290,14 @@ export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps
   const methodB = prospect.messageVariations!.methodB;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Status Badge */}
       {prospect.messageStatus && (
         <div className="flex items-center gap-2">
           <Badge
             variant="outline"
             className={cn(
-              "text-xs",
+              "text-[10px] sm:text-xs",
               prospect.messageStatus === "sent"
                 ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
                 : prospect.messageStatus === "drafted"
@@ -305,7 +305,7 @@ export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps
                 : "bg-amber-500/20 text-amber-400 border-amber-500/30"
             )}
           >
-            {prospect.messageStatus === "sent" && <CheckCircle className="h-3 w-3 mr-1" />}
+            {prospect.messageStatus === "sent" && <CheckCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />}
             {prospect.messageStatus === "sent"
               ? "Sent"
               : prospect.messageStatus === "drafted"
@@ -318,32 +318,34 @@ export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps
       {/* Method Tabs */}
       <Tabs value={selectedMethod} onValueChange={(v) => handleMethodChange(v as "A" | "B")}>
         <TabsList className="grid w-full grid-cols-2 bg-white/5">
-          <TabsTrigger value="A" className="text-xs">
-            Method A: Direct Value
+          <TabsTrigger value="A" className="text-[10px] sm:text-xs">
+            <span className="hidden sm:inline">Method A: Direct Value</span>
+            <span className="sm:hidden">Method A</span>
           </TabsTrigger>
-          <TabsTrigger value="B" className="text-xs">
-            Method B: Trojan Horse
+          <TabsTrigger value="B" className="text-[10px] sm:text-xs">
+            <span className="hidden sm:inline">Method B: Trojan Horse</span>
+            <span className="sm:hidden">Method B</span>
           </TabsTrigger>
         </TabsList>
 
         {/* Method A Content */}
-        <TabsContent value="A" className="space-y-4 mt-4">
+        <TabsContent value="A" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
           {/* Variation Selection */}
           <div className="space-y-2">
-            <label className="text-xs uppercase tracking-wider text-muted-foreground">
+            <label className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">
               Select Variation (3 options)
             </label>
-            <ScrollArea className="h-[200px] pr-4">
+            <ScrollArea className="h-[120px] sm:h-[150px] md:h-[200px] pr-2 sm:pr-4">
               <div className="space-y-2">
                 {methodA.variations.map((variation, index) => (
                   <button
                     key={index}
                     onClick={() => handleVariationChange(index)}
                     className={cn(
-                      "w-full text-left p-3 rounded-lg border text-sm transition-all",
+                      "w-full text-left p-2.5 sm:p-3 rounded-lg border text-xs sm:text-sm transition-all touch-manipulation",
                       selectedVariation === index && selectedMethod === "A"
                         ? "bg-primary/20 border-primary/50 text-primary"
-                        : "bg-white/5 border-white/10 hover:bg-white/10"
+                        : "bg-white/5 border-white/10 hover:bg-white/10 active:bg-white/15"
                     )}
                   >
                     <div className="flex items-start gap-2">
@@ -368,45 +370,45 @@ export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps
           </div>
 
           {/* Editable Message */}
-          <div className="space-y-2">
-            <label className="text-xs uppercase tracking-wider text-muted-foreground">
+          <div className="space-y-1.5 sm:space-y-2">
+            <label className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">
               Message (Editable)
             </label>
             <Textarea
               value={editedMessage}
               onChange={(e) => handleMessageEdit(e.target.value)}
-              className="min-h-[100px] bg-white/5 border-white/10 text-sm"
+              className="min-h-[80px] sm:min-h-[100px] bg-white/5 border-white/10 text-xs sm:text-sm"
               placeholder="Message will appear here..."
             />
           </div>
 
           {/* Value Asset Description */}
-          <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-            <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+          <div className="p-2.5 sm:p-3 rounded-lg bg-white/5 border border-white/10">
+            <h4 className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-1.5 sm:mb-2">
               Value Asset
             </h4>
-            <p className="text-xs text-muted-foreground">{methodA.valueAssetDescription}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">{methodA.valueAssetDescription}</p>
           </div>
         </TabsContent>
 
         {/* Method B Content */}
-        <TabsContent value="B" className="space-y-4 mt-4">
+        <TabsContent value="B" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
           {/* Opener Selection */}
           <div className="space-y-2">
-            <label className="text-xs uppercase tracking-wider text-muted-foreground">
+            <label className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">
               Select Opener (under 50 chars)
             </label>
-            <ScrollArea className="h-[150px] pr-4">
+            <ScrollArea className="h-[100px] sm:h-[120px] md:h-[150px] pr-2 sm:pr-4">
               <div className="space-y-2">
                 {methodB.openers.map((opener, index) => (
                 <button
                   key={index}
                   onClick={() => handleVariationChange(index)}
                   className={cn(
-                    "w-full text-left p-3 rounded-lg border text-sm transition-all",
+                    "w-full text-left p-2.5 sm:p-3 rounded-lg border text-xs sm:text-sm transition-all touch-manipulation",
                     selectedVariation === index && selectedMethod === "B"
                       ? "bg-primary/20 border-primary/50 text-primary"
-                      : "bg-white/5 border-white/10 hover:bg-white/10"
+                      : "bg-white/5 border-white/10 hover:bg-white/10 active:bg-white/15"
                   )}
                 >
                   <div className="flex items-start gap-2">
@@ -434,36 +436,36 @@ export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps
           </div>
 
           {/* Editable Opener */}
-          <div className="space-y-2">
-            <label className="text-xs uppercase tracking-wider text-muted-foreground">
+          <div className="space-y-1.5 sm:space-y-2">
+            <label className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">
               Opener (Editable)
             </label>
             <Textarea
               value={editedMessage}
               onChange={(e) => handleMessageEdit(e.target.value)}
-              className="min-h-[60px] bg-white/5 border-white/10 text-sm font-mono"
+              className="min-h-[50px] sm:min-h-[60px] bg-white/5 border-white/10 text-xs sm:text-sm font-mono"
               placeholder="Opener will appear here..."
               maxLength={50}
             />
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-[9px] sm:text-[10px] text-muted-foreground">
               {editedMessage.length}/50 characters
             </p>
           </div>
 
           {/* Pivot Message */}
-          <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-            <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+          <div className="p-2.5 sm:p-3 rounded-lg bg-white/5 border border-white/10">
+            <h4 className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-1.5 sm:mb-2">
               Pivot Message (Send after they reply)
             </h4>
-            <p className="text-xs text-muted-foreground">{methodB.pivotMessage}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">{methodB.pivotMessage}</p>
           </div>
 
           {/* Value Asset Description */}
-          <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-            <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
+          <div className="p-2.5 sm:p-3 rounded-lg bg-white/5 border border-white/10">
+            <h4 className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-1.5 sm:mb-2">
               Value Asset
             </h4>
-            <p className="text-xs text-muted-foreground">{methodB.valueAssetDescription}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">{methodB.valueAssetDescription}</p>
           </div>
         </TabsContent>
       </Tabs>
@@ -475,7 +477,7 @@ export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps
         <Button
           onClick={handleOpenInstagram}
           disabled={!editedMessage.trim() || isOpening}
-          className="w-full"
+          className="w-full text-xs sm:text-sm h-9 sm:h-10"
         >
           {isOpening ? (
             <>
@@ -494,16 +496,17 @@ export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps
             variant="outline"
             onClick={handleCopy}
             disabled={!editedMessage.trim()}
-            className="flex-1 border-white/10"
+            className="flex-1 border-white/10 text-xs sm:text-sm h-8 sm:h-9"
           >
             {copied ? (
               <>
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Copied!
+                <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                <span className="hidden sm:inline">Copied!</span>
+                <span className="sm:hidden">Copied</span>
               </>
             ) : (
               <>
-                <Copy className="h-4 w-4 mr-2" />
+                <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                 Copy
               </>
             )}
@@ -512,10 +515,11 @@ export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps
             <Button
               variant="outline"
               onClick={handleMarkAsSent}
-              className="flex-1 border-white/10"
+              className="flex-1 border-white/10 text-xs sm:text-sm h-8 sm:h-9"
             >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Mark as Sent
+              <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+              <span className="hidden sm:inline">Mark as Sent</span>
+              <span className="sm:hidden">Sent</span>
             </Button>
           )}
         </div>

@@ -171,7 +171,7 @@ export function ProspectsTable() {
   };
 
   const handleMarkContacted = async (id: Id<"prospects">) => {
-    await updateProspect({ id, lastContactedAt: Date.now() });
+    await updateProspect({ id, lastContactedAt: Date.now(), status: "Outreached" });
   };
 
   const handleDelete = async () => {
@@ -459,7 +459,7 @@ export function ProspectsTable() {
 
       {/* Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="bg-card/95 backdrop-blur-xl border-white/10 max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="bg-card/95 backdrop-blur-xl border-white/10 w-[95vw] sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
           {selectedProspect && (
             <>
               <DialogHeader className="shrink-0">
@@ -478,20 +478,20 @@ export function ProspectsTable() {
                   </div>
                 </div>
               </DialogHeader>
-              <ScrollArea className="flex-1 pr-4">
-                <div className="space-y-4 py-4">
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                      <div className="text-lg font-bold">{formatFollowers(selectedProspect.followerCount)}</div>
-                      <div className="text-xs text-muted-foreground">Followers</div>
+              <ScrollArea className="flex-1 pr-2 sm:pr-4">
+                <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-center">
+                    <div className="p-2.5 sm:p-3 rounded-lg bg-white/5 border border-white/10">
+                      <div className="text-base sm:text-lg font-bold">{formatFollowers(selectedProspect.followerCount)}</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground">Followers</div>
                     </div>
-                    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                      <div className="text-lg font-bold">{selectedProspect.engagementRate.toFixed(1)}%</div>
-                      <div className="text-xs text-muted-foreground">Engagement</div>
+                    <div className="p-2.5 sm:p-3 rounded-lg bg-white/5 border border-white/10">
+                      <div className="text-base sm:text-lg font-bold">{selectedProspect.engagementRate.toFixed(1)}%</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground">Engagement</div>
                     </div>
-                    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                      <div className="text-lg font-bold">{selectedProspect.transformationScore}/10</div>
-                      <div className="text-xs text-muted-foreground">Score</div>
+                    <div className="p-2.5 sm:p-3 rounded-lg bg-white/5 border border-white/10">
+                      <div className="text-base sm:text-lg font-bold">{selectedProspect.transformationScore}/10</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground">Score</div>
                     </div>
                   </div>
                   {selectedProspect.bio && (
@@ -521,7 +521,7 @@ export function ProspectsTable() {
                   {/* DM Message Section */}
                   {selectedProspect.isQualified && (
                     <div>
-                      <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-3">DM Message</h4>
+                      <h4 className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-2 sm:mb-3">DM Message</h4>
                       <ProspectDMCard
                         key={dmCardKey}
                         prospect={{
@@ -555,7 +555,20 @@ export function ProspectsTable() {
                 <Button
                   variant="outline"
                   className="border-white/10"
-                  onClick={() => handleMarkContacted(selectedProspect._id)}
+                  onClick={async () => {
+                    await handleMarkContacted(selectedProspect._id);
+                    // Refresh prospect data after marking as contacted
+                    setTimeout(() => {
+                      if (selectedProspect && prospects) {
+                        const updatedProspect = prospects.find(
+                          (p) => p._id === selectedProspect._id
+                        );
+                        if (updatedProspect) {
+                          setSelectedProspect(updatedProspect);
+                        }
+                      }
+                    }, 100);
+                  }}
                 >
                   Mark as Contacted
                 </Button>
