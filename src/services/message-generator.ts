@@ -1,9 +1,14 @@
 import { generateObject } from "ai";
 import { createGateway } from "@ai-sdk/gateway";
 import { z } from "zod";
-import { MODELS } from "@/constants";
 
 const gateway = createGateway();
+
+// Gateway models don't need the "vercel/" prefix - just provider/model
+const GATEWAY_MODELS = {
+  FAST: "google/gemini-3-flash",
+  DEEP: "google/gemini-3-pro",
+} as const;
 
 const MessageVariationsSchema = z.object({
   methodA: z.object({
@@ -147,7 +152,7 @@ export async function generateDMMessageVariations(
   const prompt = buildMessagePrompt(input);
 
   const result = await generateObject({
-    model: gateway(MODELS.DEEP), // Use Pro model for better copywriting
+    model: gateway(GATEWAY_MODELS.DEEP), // Use Pro model for better copywriting
     schema: MessageVariationsSchema,
     prompt,
   });

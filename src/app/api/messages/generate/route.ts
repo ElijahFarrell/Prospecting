@@ -24,8 +24,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(variations);
   } catch (error) {
     console.error("Error generating messages:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
     return NextResponse.json(
-      { error: "Failed to generate messages" },
+      { 
+        error: "Failed to generate messages",
+        details: errorMessage,
+        ...(process.env.NODE_ENV === "development" && { stack: errorStack })
+      },
       { status: 500 }
     );
   }

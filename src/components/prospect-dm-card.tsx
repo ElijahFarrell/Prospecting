@@ -95,7 +95,9 @@ export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps
       });
 
       if (!response.ok) {
-        throw new Error("Failed to generate messages");
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.details || errorData.error || "Failed to generate messages";
+        throw new Error(errorMessage);
       }
 
       const variations: MessageVariations = await response.json();
@@ -120,6 +122,9 @@ export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps
       onStatusChange?.();
     } catch (error) {
       console.error("Failed to generate messages:", error);
+      // Show user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate messages. Please try again.";
+      alert(errorMessage); // TODO: Replace with proper toast/notification component
     } finally {
       setIsGenerating(false);
     }
