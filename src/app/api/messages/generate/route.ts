@@ -4,7 +4,18 @@ import { generateDMMessageVariations } from "@/services/message-generator";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { niche, bio, outreachAngle, monetizationGap, recentPostSummary } = body;
+    const { 
+      handle,
+      niche, 
+      bio, 
+      outreachAngle, 
+      monetizationGap, 
+      recentPostSummary,
+      followerCount,
+      engagementRate,
+      transformationScore,
+      postsCount
+    } = body;
 
     if (!niche || !bio) {
       return NextResponse.json(
@@ -14,11 +25,16 @@ export async function POST(req: NextRequest) {
     }
 
     const variations = await generateDMMessageVariations({
+      handle: handle || "",
       niche,
       bio,
       outreachAngle: outreachAngle || "",
       monetizationGap,
       recentPostSummary,
+      followerCount,
+      engagementRate,
+      transformationScore,
+      postsCount,
     });
 
     return NextResponse.json(variations);

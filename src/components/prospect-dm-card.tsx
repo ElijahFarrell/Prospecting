@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -33,6 +33,10 @@ interface ProspectDMCardProps {
     outreachAngle?: string;
     monetizationGap?: string;
     recentPostSummary?: string;
+    followerCount?: number;
+    engagementRate?: number;
+    transformationScore?: number;
+    postsCount?: number;
     messageVariations?: MessageVariations;
     selectedMessage?: {
       method: "A" | "B";
@@ -48,6 +52,7 @@ interface ProspectDMCardProps {
 
 export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps) {
   const [isGenerating, setIsGenerating] = useState(false);
+  
   // Initialize state from prospect data
   const getInitialMessage = () => {
     if (prospect.selectedMessage?.text) {
@@ -73,6 +78,17 @@ export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps
 
   const hasMessages = !!prospect.messageVariations;
 
+  // Sync state when prospect data updates (fixes UI update issue)
+  useEffect(() => {
+    if (prospect.messageVariations) {
+      const currentMessage = prospect.selectedMessage?.text || 
+                            prospect.messageVariations.methodA.variations[0] || "";
+      setEditedMessage(currentMessage);
+      setSelectedMethod(prospect.selectedMessage?.method || "A");
+      setSelectedVariation(prospect.selectedMessage?.variationIndex ?? 0);
+    }
+  }, [prospect.messageVariations, prospect.selectedMessage]);
+
   const handleGenerateMessages = async () => {
     if (!prospect.isQualified) {
       return;
@@ -86,11 +102,16 @@ export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          handle: prospect.handle,
           niche: prospect.niche,
           bio: prospect.bio || "",
           outreachAngle: prospect.outreachAngle || "",
           monetizationGap: prospect.monetizationGap,
           recentPostSummary: prospect.recentPostSummary,
+          followerCount: prospect.followerCount,
+          engagementRate: prospect.engagementRate,
+          transformationScore: prospect.transformationScore,
+          postsCount: prospect.postsCount,
         }),
       });
 
@@ -310,38 +331,40 @@ export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps
           {/* Variation Selection */}
           <div className="space-y-2">
             <label className="text-xs uppercase tracking-wider text-muted-foreground">
-              Select Variation
+              Select Variation (3 options)
             </label>
-            <div className="space-y-2">
-              {methodA.variations.map((variation, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleVariationChange(index)}
-                  className={cn(
-                    "w-full text-left p-3 rounded-lg border text-sm transition-all",
-                    selectedVariation === index && selectedMethod === "A"
-                      ? "bg-primary/20 border-primary/50 text-primary"
-                      : "bg-white/5 border-white/10 hover:bg-white/10"
-                  )}
-                >
-                  <div className="flex items-start gap-2">
-                    <div
-                      className={cn(
-                        "mt-1 h-4 w-4 rounded-full border-2 flex-shrink-0",
-                        selectedVariation === index && selectedMethod === "A"
-                          ? "border-primary bg-primary/20"
-                          : "border-white/30"
-                      )}
-                    >
-                      {selectedVariation === index && selectedMethod === "A" && (
-                        <div className="h-full w-full rounded-full bg-primary" />
-                      )}
+            <ScrollArea className="h-[200px] pr-4">
+              <div className="space-y-2">
+                {methodA.variations.map((variation, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleVariationChange(index)}
+                    className={cn(
+                      "w-full text-left p-3 rounded-lg border text-sm transition-all",
+                      selectedVariation === index && selectedMethod === "A"
+                        ? "bg-primary/20 border-primary/50 text-primary"
+                        : "bg-white/5 border-white/10 hover:bg-white/10"
+                    )}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div
+                        className={cn(
+                          "mt-1 h-4 w-4 rounded-full border-2 flex-shrink-0",
+                          selectedVariation === index && selectedMethod === "A"
+                            ? "border-primary bg-primary/20"
+                            : "border-white/30"
+                        )}
+                      >
+                        {selectedVariation === index && selectedMethod === "A" && (
+                          <div className="h-full w-full rounded-full bg-primary" />
+                        )}
+                      </div>
+                      <span className="flex-1">{variation}</span>
                     </div>
-                    <span className="flex-1">{variation}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
+                  </button>
+                ))}
+              </div>
+            </ScrollArea>
           </div>
 
           {/* Editable Message */}
@@ -373,8 +396,9 @@ export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps
             <label className="text-xs uppercase tracking-wider text-muted-foreground">
               Select Opener (under 50 chars)
             </label>
-            <div className="space-y-2">
-              {methodB.openers.map((opener, index) => (
+            <ScrollArea className="h-[150px] pr-4">
+              <div className="space-y-2">
+                {methodB.openers.map((opener, index) => (
                 <button
                   key={index}
                   onClick={() => handleVariationChange(index)}
@@ -404,8 +428,9 @@ export function ProspectDMCard({ prospect, onStatusChange }: ProspectDMCardProps
                     </Badge>
                   </div>
                 </button>
-              ))}
-            </div>
+                ))}
+              </div>
+            </ScrollArea>
           </div>
 
           {/* Editable Opener */}

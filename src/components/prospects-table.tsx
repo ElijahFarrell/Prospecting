@@ -524,7 +524,13 @@ export function ProspectsTable() {
                       <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-3">DM Message</h4>
                       <ProspectDMCard
                         key={dmCardKey}
-                        prospect={selectedProspect}
+                        prospect={{
+                          ...selectedProspect,
+                          followerCount: selectedProspect.followerCount,
+                          engagementRate: selectedProspect.engagementRate,
+                          transformationScore: selectedProspect.transformationScore,
+                          postsCount: selectedProspect.postsCount,
+                        }}
                         onStatusChange={() => {
                           // Find the updated prospect from the reactive query
                           // Use setTimeout to ensure Convex query has updated

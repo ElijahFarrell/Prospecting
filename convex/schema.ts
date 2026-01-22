@@ -30,7 +30,7 @@ export default defineSchema({
     messageVariations: v.optional(
       v.object({
         methodA: v.object({
-          variations: v.array(v.string()),
+          variations: v.array(v.string()), // Now supports 3 variations
           valueAssetDescription: v.string(),
         }),
         methodB: v.object({
