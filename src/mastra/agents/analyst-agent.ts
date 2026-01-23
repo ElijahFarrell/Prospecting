@@ -1,5 +1,6 @@
 import { Agent } from "@mastra/core/agent";
-import { MODELS } from "@/constants";
+import { MODELS, TAVILY_CONFIG } from "@/constants";
+import { tavilySearch, tavilyExtract } from "@tavily/ai-sdk";
 
 export const analystAgent = new Agent({
   name: "Creator Analyst",
@@ -26,12 +27,20 @@ ANALYSIS FRAMEWORK - The 3 Pillars:
    - Niche alignment with health, wealth, or relationships
    - Business account indicators (link in bio, professional email)
 
+4. OVERQUALIFIED CHECK (NEW - Use when link-in-bio is available)
+   - If creator has a link in their bio, use 'tavilyExtract' tool to analyze their website/landing page
+   - Check if they're already selling digital products (courses, programs, ebooks, masterclasses)
+   - Look for indicators: "buy now", "purchase", "checkout", "course", "program", "ebook", "digital product", "pricing", "membership"
+   - If they have 3+ product indicators, they're OVERQUALIFIED
+   - Overqualified creators should be DISQUALIFIED (they don't need IPGA partnership - they're already monetizing)
+
 DISQUALIFICATION CRITERIA (Instant Fail):
 - Follower count outside 20,000-150,000 range
 - Engagement rate below 1% or above 15% (fake engagement)
 - No transformation/educational content visible
 - Clear bot/fake follower patterns
 - Exclusively promotional content (no value posts)
+- OVERQUALIFIED: Already selling digital products (use tavilyExtract to check link-in-bio)
 
 OUTPUT REQUIREMENTS:
 - isQualified: boolean
@@ -42,6 +51,16 @@ OUTPUT REQUIREMENTS:
 
 Be critical. It's better to reject borderline cases than pass unqualified creators.`,
   model: MODELS.FAST,
-  tools: {},
+  tools: {
+    tavilySearch: tavilySearch({
+      searchDepth: TAVILY_CONFIG.SEARCH_DEPTH.BASIC,
+      maxResults: TAVILY_CONFIG.DEFAULT_MAX_RESULTS,
+      topic: TAVILY_CONFIG.TOPIC.GENERAL,
+    }),
+    tavilyExtract: tavilyExtract({
+      extractDepth: TAVILY_CONFIG.SEARCH_DEPTH.ADVANCED,
+      format: TAVILY_CONFIG.FORMAT.TEXT,
+    }),
+  },
 });
 

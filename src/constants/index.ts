@@ -24,3 +24,21 @@ export const MODELS = {
   DEEP: "vercel/google/gemini-3-pro",
 } as const;
 
+// Tavily configuration constants
+export const TAVILY_CONFIG = {
+  SEARCH_DEPTH: {
+    BASIC: "basic",
+    ADVANCED: "advanced",
+  } as const,
+  TOPIC: {
+    GENERAL: "general",
+    NEWS: "news",
+    FINANCE: "finance",
+  } as const,
+  FORMAT: {
+    MARKDOWN: "markdown",
+    TEXT: "text",
+  } as const,
+  DEFAULT_MAX_RESULTS: 5,
+} as const;
+
