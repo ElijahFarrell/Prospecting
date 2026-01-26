@@ -29,6 +29,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tailwindcss/typography": "^0.5.19",
     "@tavily/ai-sdk": "^0.4.1",
+    "@tavily/core": "^0.7.1",
     "ai": "^6.0.0",
     "apify-client": "^2.9.0",
     "class-variance-authority": "^0.7.1",

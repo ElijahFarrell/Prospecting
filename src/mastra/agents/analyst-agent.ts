@@ -1,6 +1,6 @@
 import { Agent } from "@mastra/core/agent";
-import { MODELS, TAVILY_CONFIG } from "@/constants";
-import { tavilySearch, tavilyExtract } from "@tavily/ai-sdk";
+import { MODELS } from "@/constants";
+import { tavilyExtractTool } from "../tools/tavily-search";
 
 export const analystAgent = new Agent({
   name: "Creator Analyst",
@@ -28,7 +28,7 @@ ANALYSIS FRAMEWORK - The 3 Pillars:
    - Business account indicators (link in bio, professional email)
 
 4. OVERQUALIFIED CHECK (NEW - Use when link-in-bio is available)
-   - If creator has a link in their bio, use 'tavilyExtract' tool to analyze their website/landing page
+   - If creator has a link in their bio, use 'tavilyExtract' tool to analyze their website/landing page (pass URL as array: ["url"])
    - Check if they're already selling digital products (courses, programs, ebooks, masterclasses)
    - Look for indicators: "buy now", "purchase", "checkout", "course", "program", "ebook", "digital product", "pricing", "membership"
    - If they have 3+ product indicators, they're OVERQUALIFIED
@@ -40,7 +40,7 @@ DISQUALIFICATION CRITERIA (Instant Fail):
 - No transformation/educational content visible
 - Clear bot/fake follower patterns
 - Exclusively promotional content (no value posts)
-- OVERQUALIFIED: Already selling digital products (use tavilyExtract to check link-in-bio)
+- OVERQUALIFIED: Already selling digital products (use tavilyExtract tool with URLs array to check link-in-bio)
 
 OUTPUT REQUIREMENTS:
 - isQualified: boolean
@@ -52,15 +52,7 @@ OUTPUT REQUIREMENTS:
 Be critical. It's better to reject borderline cases than pass unqualified creators.`,
   model: MODELS.FAST,
   tools: {
-    tavilySearch: tavilySearch({
-      searchDepth: TAVILY_CONFIG.SEARCH_DEPTH.BASIC,
-      maxResults: TAVILY_CONFIG.DEFAULT_MAX_RESULTS,
-      topic: TAVILY_CONFIG.TOPIC.GENERAL,
-    }),
-    tavilyExtract: tavilyExtract({
-      extractDepth: TAVILY_CONFIG.SEARCH_DEPTH.ADVANCED,
-      format: TAVILY_CONFIG.FORMAT.TEXT,
-    }),
+    tavilyExtract: tavilyExtractTool,
   },
 });
 

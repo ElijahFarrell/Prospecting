@@ -62,6 +62,9 @@ importers:
       '@tavily/ai-sdk':
         specifier: ^0.4.1
         version: 0.4.1(ai@6.0.37(zod@3.25.76))(zod@3.25.76)
+      '@tavily/core':
+        specifier: ^0.7.1
+        version: 0.7.1
       ai:
         specifier: ^6.0.0
         version: 6.0.37(zod@3.25.76)
@@ -1918,6 +1921,9 @@ packages:
 
   '@tavily/core@0.6.4':
     resolution: {integrity: sha512-PppC0p2SwkoImLiYFT/uqDyWKPivpVsIM16HUf1Apmtbqg1YhI7Yg5Hq6eYSojC6COVCGXE4CotBnWqUmrai+A==}
+
+  '@tavily/core@0.7.1':
+    resolution: {integrity: sha512-pESSzbYBJIbvD6LAxWcb2dASZXcO7dsaZDREGKYKd3ssgg01WdMZzhm6LIaZNGhECD+kOg2ldt8+b7BGespu/g==}
 
   '@tootallnate/once@1.1.2':
     resolution: {integrity: sha512-RbzJvlNzmRq5c3O09UipeuXno4tA1FE6ikOjxZK0tuxVv3412l64l5t1W5pj4+rJq9vpkm/kwiR07aZXnsKPxw==}
@@ -6649,6 +6655,15 @@ snapshots:
       - supports-color
 
   '@tavily/core@0.6.4':
+    dependencies:
+      axios: 1.13.2
+      https-proxy-agent: 7.0.6
+      js-tiktoken: 1.0.21
+    transitivePeerDependencies:
+      - debug
+      - supports-color
+
+  '@tavily/core@0.7.1':
     dependencies:
       axios: 1.13.2
       https-proxy-agent: 7.0.6

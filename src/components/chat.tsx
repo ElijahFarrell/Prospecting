@@ -22,27 +22,20 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ScoutProgress } from "./scout-progress";
 import { CreatorCard } from "./creator-card";
+import { ToolExecutionCard } from "./tool-execution-card";
+import { getToolDisplayInfo } from "@/lib/tool-display-map";
+import { SEARCH_DEPTH_OPTIONS, CREATOR_LIMIT_OPTIONS } from "@/constants";
 import type { CreatorResult } from "@/mastra/tools";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
-const PROGRESS_STAGES = [
-  { message: "Understanding your request...", duration: 3000 },
-  { message: "Searching Instagram for creators...", duration: 8000 },
-  { message: "Discovered creators, fetching profiles...", duration: 15000 },
-  { message: "Analyzing creator engagement...", duration: 20000 },
-  { message: "Evaluating authenticity signals...", duration: 25000 },
-  { message: "Scoring creators for brand fit...", duration: 30000 },
-  { message: "Finalizing analysis...", duration: 60000 },
-];
-
-function hasCompletedToolResult(messages: Array<{ parts?: Array<{ type?: string; state?: string; output?: unknown }> }>) {
+function hasCompletedToolResult(messages: Array<{ parts?: Array<{ type?: string; toolInvocation?: { state?: string } }> }>) {
   for (const message of messages) {
     if (!message.parts) continue;
     for (const part of message.parts) {
       if (
-        (part.type === "tool-invocation" || part.type?.startsWith("tool-")) &&
-        (part as { state?: string }).state === "result"
+        part.type === "tool-invocation" &&
+        (part as { toolInvocation?: { state?: string } }).toolInvocation?.state === "result"
       ) {
         return true;
       }
@@ -57,16 +50,17 @@ interface ChatProps {
   onThreadCreated?: (threadId: Id<"threads">) => void;
 }
 
-const SEARCH_DEPTH_OPTIONS = [
-  { value: 10, label: "Quick" },
-  { value: 30, label: "Standard" },
-  { value: 50, label: "Deep" },
-  { value: 100, label: "Exhaustive" },
-];
+interface ActiveTool {
+  toolId: string;
+  toolCallId: string;
+  state: "call" | "partial-call" | "result" | "error";
+  startTime: number;
+  displayInfo: ReturnType<typeof getToolDisplayInfo>;
+  output?: unknown;
+}
 
 export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) {
   const [inputValue, setInputValue] = useState("");
-  const [progressStage, setProgressStage] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [searchDepth, setSearchDepth] = useState(30);
   const [creatorLimit, setCreatorLimit] = useState(5);
@@ -74,6 +68,7 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
   const [currentThreadId, setCurrentThreadId] = useState<Id<"threads"> | null>(
     threadId ?? null
   );
+  const [activeTools, setActiveTools] = useState<Map<string, ActiveTool>>(new Map());
   const scrollRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number | null>(null);
 
@@ -92,8 +87,12 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
       api: "/api/chat",
     }),
     onFinish: async ({ message }) => {
+      console.log("🏁 onFinish called with message:", {
+        role: message.role,
+        partsCount: message.parts?.length || 0,
+        parts: message.parts?.map((p: { type?: string }) => ({ type: p.type })),
+      });
       startTimeRef.current = null;
-      setProgressStage(0);
       setElapsedTime(0);
 
       const textContent = message.parts
@@ -116,15 +115,39 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
       }
       
       const toolParts = message.parts?.filter(
-        (p) => p.type === "tool-invocation" || p.type?.startsWith("tool-")
+        (p) => p.type?.startsWith("tool-") || p.type === "tool-invocation"
       );
+      console.log("🔧 Tool parts in onFinish:", toolParts?.length || 0);
       if (toolParts) {
         for (const part of toolParts) {
-          const output = (part as { output?: unknown }).output as {
-            creators?: CreatorResult[];
-          };
-          if (output?.creators && onCreatorsFound) {
-            onCreatorsFound(output.creators);
+          console.log("🔍 Processing tool part:", JSON.stringify(part, null, 2));
+          
+          // Handle "tool-{toolName}" format
+          if (part.type?.startsWith("tool-")) {
+            const toolPart = part as {
+              type: string;
+              result?: unknown;
+              output?: unknown;
+            };
+            const output = (toolPart.result || toolPart.output) as {
+              creators?: CreatorResult[];
+            };
+            if (output?.creators && onCreatorsFound) {
+              onCreatorsFound(output.creators);
+            }
+          } else if (part.type === "tool-invocation") {
+            // Handle legacy tool-invocation format
+            const toolPart = part as {
+              toolInvocation?: {
+                result?: unknown;
+              };
+            };
+            const output = toolPart.toolInvocation?.result as {
+              creators?: CreatorResult[];
+            };
+            if (output?.creators && onCreatorsFound) {
+              onCreatorsFound(output.creators);
+            }
           }
         }
       }
@@ -153,30 +176,191 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
     }
   }, [storedMessages, currentThreadId, setMessages]);
 
-  const isLoading = status === "streaming" || status === "submitted";
-
+  const isLoading = status === "streaming" || status === "submitted" || activeTools.size > 0;
+  
+  // DEBUG: Log loading state
   useEffect(() => {
-    if (!isLoading) {
-      startTimeRef.current = null;
-      return;
-    }
-    if (!startTimeRef.current) {
-      startTimeRef.current = Date.now();
-    }
-    const timer = setInterval(() => {
-      if (!startTimeRef.current) return;
-      const elapsed = Date.now() - startTimeRef.current;
-      setElapsedTime(elapsed);
-      let newStage = 0;
-      for (let i = 0; i < PROGRESS_STAGES.length; i++) {
-        if (elapsed >= PROGRESS_STAGES[i].duration) {
-          newStage = i + 1;
+    console.log("⏳ Loading state:", {
+      status,
+      isLoading,
+      activeToolsCount: activeTools.size,
+      messagesCount: messages.length,
+    });
+  }, [status, isLoading, activeTools.size, messages.length]);
+
+  // Track active tools from messages
+  useEffect(() => {
+    const tools = new Map<string, ActiveTool>();
+    
+    for (const message of messages) {
+      if (!message.parts) continue;
+      
+      // DEBUG: Log all message parts to see structure
+      console.log("🔍 Message parts:", JSON.stringify(message.parts, null, 2));
+      
+      for (const part of message.parts) {
+        // DEBUG: Log each part type
+        console.log("📦 Part type:", part.type, "Part:", JSON.stringify(part, null, 2));
+        
+        // AI SDK format: tool parts have type "tool-{toolName}" (e.g., "tool-startNicheWorkflow")
+        if (part.type?.startsWith("tool-")) {
+          console.log("✅ Found tool part:", part.type);
+          const toolPart = part as {
+            type: string;
+            toolCallId?: string;
+            state?: "input-streaming" | "input-available" | "call" | "partial-call" | "result" | "error" | "output-available";
+            input?: unknown;
+            result?: unknown;
+            output?: unknown;
+          };
+          
+          // Extract tool name from type (e.g., "tool-startNicheWorkflow" -> "startNicheWorkflow")
+          const toolId = toolPart.type.replace("tool-", "") || "unknown";
+          const toolCallId = toolPart.toolCallId || toolId;
+          
+          // Map AI SDK states to our internal states
+          // Priority: explicit states first, then fallback to result presence check
+          let state: ActiveTool["state"] = "call";
+          if (toolPart.state === "result" || toolPart.state === "output-available") {
+            state = "result";
+          } else if (toolPart.state === "error") {
+            state = "error";
+          } else if (toolPart.state === "input-streaming" || toolPart.state === "partial-call") {
+            state = "partial-call";
+          } else if (toolPart.state === "input-available" || toolPart.state === "call") {
+            state = "call";
+          } else if (toolPart.result !== undefined) {
+            // Fallback: if state is undefined but we have a result, the tool is complete
+            state = "result";
+          }
+          
+          const displayInfo = getToolDisplayInfo(toolId);
+          const output = toolPart.result || toolPart.output;
+          
+          console.log("🛠️ Tool info:", {
+            toolId,
+            toolCallId,
+            state: toolPart.state,
+            mappedState: state,
+            hasDisplayInfo: !!displayInfo,
+          });
+          
+          // Use toolCallId as key to handle multiple calls of same tool
+          const key = toolCallId;
+          
+          // Skip completed tools entirely - they'll be shown inline in messages
+          if (state === "result" || state === "error") {
+            console.log("⏭️ Skipping completed tool:", key, state);
+            continue;
+          }
+          
+          if (displayInfo) {
+            const existingTool = tools.get(key);
+            // Only add/update active (non-completed) tools
+            tools.set(key, {
+              toolId,
+              toolCallId,
+              state,
+              startTime: existingTool?.startTime || Date.now(),
+              displayInfo,
+              output,
+            });
+            console.log("➕ Added/updated tool:", key, state);
+          } else {
+            console.log("❌ No display info for tool:", toolId);
+          }
+        } else if (part.type === "tool-invocation") {
+          // Handle legacy tool-invocation format (nested structure)
+          console.log("✅ Found tool-invocation part (legacy format)!");
+          const toolPart = part as {
+            toolInvocation?: {
+              toolCallId?: string;
+              toolName?: string;
+              state?: "partial-call" | "call" | "result";
+              result?: unknown;
+            };
+          };
+          
+          const invocation = toolPart.toolInvocation;
+          if (!invocation) {
+            console.log("⚠️ No toolInvocation found in part");
+            continue;
+          }
+          
+          const toolId = invocation.toolName || "unknown";
+          // Check explicit state, or fallback to "result" if we have a result but no state
+          let state: ActiveTool["state"];
+          if (invocation.state === "result") {
+            state = "result";
+          } else if (invocation.result !== undefined && !invocation.state) {
+            // If we have a result but state is undefined, treat as complete
+            state = "result";
+          } else {
+            state = (invocation.state || "call") as ActiveTool["state"];
+          }
+          const toolCallId = invocation.toolCallId || toolId;
+          const displayInfo = getToolDisplayInfo(toolId);
+          const key = toolCallId;
+          
+          // Skip completed tools entirely - they'll be shown inline in messages
+          if (state === "result" || state === "error") {
+            console.log("⏭️ Skipping completed tool (legacy):", key, state);
+            continue;
+          }
+          
+          if (displayInfo) {
+            const existingTool = tools.get(key);
+            // Only add/update active (non-completed) tools
+            tools.set(key, {
+              toolId,
+              toolCallId,
+              state,
+              startTime: existingTool?.startTime || Date.now(),
+              displayInfo,
+              output: invocation.result,
+            });
+          }
         }
       }
-      setProgressStage(Math.min(newStage, PROGRESS_STAGES.length - 1));
+    }
+    
+    console.log("🎯 Final active tools:", Array.from(tools.keys()));
+    setActiveTools(tools);
+  }, [messages]);
+  
+  // DEBUG: Log messages changes
+  useEffect(() => {
+    console.log("📬 Messages updated:", {
+      count: messages.length,
+      lastMessage: messages[messages.length - 1] ? {
+        role: messages[messages.length - 1].role,
+        partsCount: messages[messages.length - 1].parts?.length || 0,
+        parts: messages[messages.length - 1].parts?.map((p: { type?: string }) => p.type),
+      } : null,
+    });
+  }, [messages]);
+
+  // Update elapsed time for active tools
+  useEffect(() => {
+    if (!isLoading && activeTools.size === 0) {
+      startTimeRef.current = null;
+      setElapsedTime(0);
+      return;
+    }
+    
+    if (isLoading && !startTimeRef.current) {
+      startTimeRef.current = Date.now();
+    }
+    
+    const timer = setInterval(() => {
+      if (startTimeRef.current) {
+        const elapsed = Date.now() - startTimeRef.current;
+        setElapsedTime(elapsed);
+      }
     }, 500);
+    
     return () => clearInterval(timer);
-  }, [isLoading]);
+  }, [isLoading, activeTools.size]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -281,7 +465,7 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Creator Limit</label>
                 <div className="grid grid-cols-5 gap-1.5">
-                  {[3, 5, 10, 15, 20].map((num) => (
+                  {CREATOR_LIMIT_OPTIONS.map((num) => (
                     <Button
                       key={num}
                       variant={creatorLimit === num ? "default" : "outline"}
@@ -341,11 +525,25 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
             const hasTextContent = message.parts?.some(
               (p) => p.type === "text" && p.text?.trim()
             );
-            const hasToolContent = message.parts?.some(
-              (p) => p.type === "tool-invocation" || p.type?.startsWith("tool-")
-            );
             
-            if (message.role === "assistant" && !hasTextContent && !hasToolContent) {
+            // Check if message has any completed tool content (not active)
+            const hasCompletedToolContent = message.parts?.some((p) => {
+              if (p.type?.startsWith("tool-")) {
+                const toolCallId = (p as { toolCallId?: string }).toolCallId;
+                // Tool is completed if it's NOT in activeTools
+                return toolCallId && !activeTools.has(toolCallId);
+              }
+              if (p.type === "tool-invocation") {
+                const invocation = (p as { toolInvocation?: { toolCallId?: string } }).toolInvocation;
+                const toolCallId = invocation?.toolCallId;
+                return toolCallId && !activeTools.has(toolCallId);
+              }
+              return false;
+            });
+            
+            // Skip messages that only have active tool content (no text, no completed tools)
+            // These are handled by the active tools section
+            if (message.role === "assistant" && !hasTextContent && !hasCompletedToolContent) {
               return null;
             }
 
@@ -400,47 +598,208 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
                       );
                     }
 
-                    if (part.type === "tool-invocation" || part.type?.startsWith("tool-")) {
+                    // Handle "tool-{toolName}" format (e.g., "tool-startNicheWorkflow")
+                    if (part.type?.startsWith("tool-")) {
                       const toolPart = part as {
-                        state?: string;
-                        output?: {
+                        type: string;
+                        toolCallId?: string;
+                        state?: "input-streaming" | "input-available" | "call" | "partial-call" | "result" | "error" | "output-available";
+                        result?: {
                           creators?: CreatorResult[];
                           totalDiscovered?: number;
                           qualified?: number;
+                          results?: Array<{ title: string; url: string; content?: string }>;
+                          query?: string;
                         };
+                        output?: unknown;
                       };
 
-                      if (toolPart.state === "call" || toolPart.state === "partial-call") {
+                      // Extract tool name from type (e.g., "tool-startNicheWorkflow" -> "startNicheWorkflow")
+                      const toolId = toolPart.type.replace("tool-", "") || "unknown";
+                      const toolCallId = toolPart.toolCallId || toolId;
+                      const displayInfo = getToolDisplayInfo(toolId);
+                      const state = toolPart.state;
+                      const output = toolPart.result || toolPart.output;
+                      
+                      // If this tool is still active, don't render it here - the active tools section handles it
+                      if (activeTools.has(toolCallId)) {
+                        return null;
+                      }
+                      
+                      // Also skip by state as a fallback
+                      if (state === "call" || state === "partial-call" || state === "input-streaming" || state === "input-available") {
                         return null;
                       }
 
-                      if (toolPart.state === "result" && toolPart.output?.creators) {
-                        return (
-                          <div key={i} className="mt-3 space-y-3 w-full">
-                            <ScoutProgress
-                              data={{
-                                stage: "complete",
-                                message: "Scouting complete!",
-                                results: {
-                                  total: toolPart.output.totalDiscovered || 0,
-                                  analyzed: toolPart.output.creators.length,
-                                  qualified: toolPart.output.qualified || 0,
-                                },
-                              }}
+                      // Show completed tool results
+                      if (state === "result" || state === "output-available" || (state === undefined && output !== undefined)) {
+                        // Handle workflow results (creators)
+                        if (output && typeof output === "object" && "creators" in output) {
+                          const creatorsOutput = output as {
+                            creators?: CreatorResult[];
+                            totalDiscovered?: number;
+                            qualified?: number;
+                          };
+                          if (creatorsOutput.creators) {
+                            return (
+                              <div key={i} className="mt-3 space-y-3 w-full">
+                                <ScoutProgress
+                                  data={{
+                                    stage: "complete",
+                                    message: "Scouting complete!",
+                                    results: {
+                                      total: creatorsOutput.totalDiscovered || 0,
+                                      analyzed: creatorsOutput.creators.length,
+                                      qualified: creatorsOutput.qualified || 0,
+                                    },
+                                  }}
+                                />
+                                <div className="grid gap-2">
+                                  {creatorsOutput.creators.slice(0, 3).map((creator) => (
+                                    <CreatorCard key={creator.username} creator={creator} />
+                                  ))}
+                                </div>
+                                {creatorsOutput.creators.length > 3 && (
+                                  <p className="text-xs text-center text-muted-foreground">
+                                    + {creatorsOutput.creators.length - 3} more in sidebar
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          }
+                        }
+                        
+                        // Handle Tavily search results (sources)
+                        if (displayInfo?.showSources && output && typeof output === "object" && "results" in output) {
+                          const searchOutput = output as {
+                            results?: Array<{ title: string; url: string; content?: string }>;
+                          };
+                          if (searchOutput.results) {
+                            return (
+                              <ToolExecutionCard
+                                key={i}
+                                toolId={toolId}
+                                state="result"
+                                message={displayInfo.message}
+                                description={displayInfo.description}
+                                icon={displayInfo.icon}
+                                sources={searchOutput.results}
+                                elapsedTime={elapsedTime}
+                              />
+                            );
+                          }
+                        }
+                        
+                        // Show completion for other tools
+                        if (displayInfo) {
+                          return (
+                            <ToolExecutionCard
+                              key={i}
+                              toolId={toolId}
+                              state="result"
+                              message={displayInfo.message}
+                              description={displayInfo.description}
+                              icon={displayInfo.icon}
+                              elapsedTime={elapsedTime}
                             />
-                            <div className="grid gap-2">
-                              {toolPart.output.creators.slice(0, 3).map((creator) => (
-                                <CreatorCard key={creator.username} creator={creator} />
-                              ))}
-                            </div>
-                            {toolPart.output.creators.length > 3 && (
-                              <p className="text-xs text-center text-muted-foreground">
-                                + {toolPart.output.creators.length - 3} more in sidebar
-                              </p>
-                            )}
-                          </div>
-                        );
+                          );
+                        }
                       }
+                      return null;
+                    }
+                    
+                    // Handle legacy "tool-invocation" format
+                    if (part.type === "tool-invocation") {
+                      const toolPart = part as {
+                        toolInvocation?: {
+                          toolName?: string;
+                          toolCallId?: string;
+                          state?: "partial-call" | "call" | "result" | "output-available";
+                          result?: {
+                            creators?: CreatorResult[];
+                            totalDiscovered?: number;
+                            qualified?: number;
+                            results?: Array<{ title: string; url: string; content?: string }>;
+                            query?: string;
+                          };
+                        };
+                      };
+
+                      const invocation = toolPart.toolInvocation;
+                      if (!invocation) return null;
+
+                      const toolId = invocation.toolName || "unknown";
+                      const displayInfo = getToolDisplayInfo(toolId);
+                      const state = invocation.state;
+                      
+                      // Don't show active tools here - they're shown in the active tools section
+                      if (state === "call" || state === "partial-call") {
+                        return null;
+                      }
+
+                      // Show completed tool results
+                      if (state === "result" || state === "output-available" || (state === undefined && invocation.result !== undefined)) {
+                        // Handle workflow results (creators)
+                        if (invocation.result?.creators) {
+                          return (
+                            <div key={i} className="mt-3 space-y-3 w-full">
+                              <ScoutProgress
+                                data={{
+                                  stage: "complete",
+                                  message: "Scouting complete!",
+                                  results: {
+                                    total: invocation.result.totalDiscovered || 0,
+                                    analyzed: invocation.result.creators.length,
+                                    qualified: invocation.result.qualified || 0,
+                                  },
+                                }}
+                              />
+                              <div className="grid gap-2">
+                                {invocation.result.creators.slice(0, 3).map((creator) => (
+                                  <CreatorCard key={creator.username} creator={creator} />
+                                ))}
+                              </div>
+                              {invocation.result.creators.length > 3 && (
+                                <p className="text-xs text-center text-muted-foreground">
+                                  + {invocation.result.creators.length - 3} more in sidebar
+                                </p>
+                              )}
+                            </div>
+                          );
+                        }
+                        
+                        // Handle Tavily search results (sources)
+                        if (displayInfo?.showSources && invocation.result?.results) {
+                          return (
+                            <ToolExecutionCard
+                              key={i}
+                              toolId={toolId}
+                              state="result"
+                              message={displayInfo.message}
+                              description={displayInfo.description}
+                              icon={displayInfo.icon}
+                              sources={invocation.result.results}
+                              elapsedTime={elapsedTime}
+                            />
+                          );
+                        }
+                        
+                        // Show completion for other tools
+                        if (displayInfo) {
+                          return (
+                            <ToolExecutionCard
+                              key={i}
+                              toolId={toolId}
+                              state="result"
+                              message={displayInfo.message}
+                              description={displayInfo.description}
+                              icon={displayInfo.icon}
+                              elapsedTime={elapsedTime}
+                            />
+                          );
+                        }
+                      }
+                      
                       return null;
                     }
                     return null;
@@ -456,7 +815,7 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
             );
           })}
 
-          {isLoading && !hasCompletedToolResult(messages) && (
+          {isLoading && activeTools.size === 0 && !hasCompletedToolResult(messages) && (
             <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Avatar className="h-8 w-8 shrink-0 mt-1 ring-1 ring-primary/30">
                 <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">AI</AvatarFallback>
@@ -466,36 +825,45 @@ export function Chat({ onCreatorsFound, threadId, onThreadCreated }: ChatProps) 
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-bold flex items-center gap-2 text-primary font-display">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      {PROGRESS_STAGES[progressStage].message}
+                      Understanding your request...
                     </CardTitle>
                     <span className="text-[10px] font-mono text-primary/80 bg-primary/10 px-2 py-0.5 rounded-full">
                       {(elapsedTime / 1000).toFixed(1)}s
                     </span>
                   </div>
                 </CardHeader>
-                <CardContent className="pb-3 px-4">
-                  <Progress value={Math.min((elapsedTime / PROGRESS_STAGES[progressStage].duration) * 100, 100)} className="h-1 bg-primary/10" />
-                  <div className="mt-3 space-y-1">
-                    {PROGRESS_STAGES.slice(0, 4).map((stage, i) => (
-                      <div
-                        key={i}
-                        className={cn(
-                          "flex items-center gap-2 text-[10px] transition-all",
-                          i === progressStage ? "text-primary font-medium" :
-                          i < progressStage ? "text-muted-foreground/40 line-through" : "text-muted-foreground/20"
-                        )}
-                      >
-                        <div className={cn(
-                          "h-1 w-1 rounded-full",
-                          i === progressStage ? "bg-primary animate-pulse" :
-                          i < progressStage ? "bg-primary/30" : "bg-white/10"
-                        )} />
-                        {stage.message}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
               </Card>
+            </div>
+          )}
+          
+          {/* Show active tools */}
+          {isLoading && activeTools.size > 0 && (
+            <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <Avatar className="h-8 w-8 shrink-0 mt-1 ring-1 ring-primary/30">
+                <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">AI</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 space-y-2 max-w-2xl">
+                {Array.from(activeTools.entries()).map(([toolCallId, tool]) => {
+                  const toolElapsed = Date.now() - tool.startTime;
+                  const sources = tool.output && typeof tool.output === "object" && "results" in tool.output
+                    ? (tool.output.results as Array<{ title: string; url: string; content?: string }>)
+                    : undefined;
+                  
+                  return (
+                    <ToolExecutionCard
+                      key={toolCallId}
+                      toolId={tool.toolId}
+                      state={tool.state}
+                      message={tool.displayInfo?.message || "Processing..."}
+                      description={tool.displayInfo?.description}
+                      icon={tool.displayInfo?.icon}
+                      durationNotice={tool.displayInfo?.durationNotice}
+                      sources={sources}
+                      elapsedTime={toolElapsed}
+                    />
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

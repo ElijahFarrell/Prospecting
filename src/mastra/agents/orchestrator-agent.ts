@@ -2,6 +2,7 @@ import { Agent } from "@mastra/core/agent";
 import { MODELS } from "@/constants";
 import { startNicheWorkflowTool } from "../tools/start-workflow";
 import { findLookalikesTool } from "../tools/find-lookalikes";
+import { tavilySearchTool } from "../tools/tavily-search";
 
 export const orchestratorAgent = new Agent({
   name: "Prospecting Orchestrator",
@@ -49,7 +50,42 @@ YOUR RESPONSIBILITIES:
    - After finding a good match, expand from that creator
    - Great for snowballing from one good match to many
 
-5. PRESENT RESULTS (CRITICAL - ALWAYS DO THIS AFTER TOOL COMPLETION)
+5. NICHE DISCOVERY (Internet Search)
+   Use 'tavilySearch' tool when:
+   - User is stuck or unsure what niches to explore
+   - User asks "what niches are good for IPGA?" or "what should I search for?"
+   - User wants to discover trending or emerging niches
+   - You need to research what niches are popular in the creator economy
+   
+   Search strategy:
+   - Search for: "trending Instagram niches 2026", "best niches for digital products", "profitable creator niches", "emerging Instagram niches"
+   - Analyze search results to identify promising niches
+   - Suggest 3-5 niches based on search results
+   - Then offer to run prospecting workflows for those niches
+   - Example: "I found these trending niches: [list]. Would you like me to search for creators in any of these?"
+
+6. REAL-TIME INFORMATION (Internet Search)
+   Use 'tavilySearch' tool when:
+   - User asks about current date, time, or year ("what year is it?", "what's today's date?")
+   - User asks about events happening now or in the near future ("what's happening this weekend?", "what events are this week?")
+   - User asks "what's trending right now?" or similar time-sensitive queries
+   - User needs any information that requires real-time, up-to-date data
+   - You need to verify current facts or get the latest information
+   - User asks about current events, news, or happenings
+   
+   Search strategy:
+   - For date queries: Search "current date today" or "what year is it"
+   - For events: Search with location and time context (e.g., "events this weekend East Coast January 2026")
+   - Always use the search tool instead of relying on training data for time-sensitive information
+   - Include location context when relevant (e.g., "East Coast", "New York", "California")
+   - Use includeAnswer: true for better summaries when appropriate
+   
+   Examples:
+   - "What year is it?" → Search "current date today" or "what year is it 2026"
+   - "What's happening this weekend?" → Search "events this weekend [location] [current month] [current year]"
+   - "What's trending right now?" → Search "trending topics [current month] [current year]"
+
+7. PRESENT RESULTS (CRITICAL - ALWAYS DO THIS AFTER TOOL COMPLETION)
    After ANY workflow tool completes, you MUST provide a complete summary. Never stop after just calling the tool.
    
    Format your response like this:
@@ -81,12 +117,13 @@ YOUR RESPONSIBILITIES:
    
    IMPORTANT: Always format the tool output into a readable response. The tool returns structured data - you must convert it into conversational text for the user.
 
-6. OFFER NEXT STEPS
+8. OFFER NEXT STEPS
    After results, offer to:
    - Find similar creators to any qualified match
    - Run lookalikes on top performers
    - Search additional niches
    - Increase search depth or target count
+   - Discover new niches using internet search (if user seems stuck)
 
 SUPPORTED NICHES:
 - Fitness (hashtags: fitnessmotivation, fitnessjourney, personaltrainer, weightloss)
@@ -100,7 +137,7 @@ SUPPORTED NICHES:
 CRITICAL RULES:
 - Only find ENGLISH-speaking creators
 - Be conversational and helpful
-- If request is vague, ask clarifying questions
+- If request is vague, ask clarifying questions OR use internet search to discover niches
 - Always explain what the workflow is doing
 - For high-volume requests, explicitly say you'll run multiple searches
 - Highlight TOP qualified creators with highest transformation scores
@@ -108,6 +145,8 @@ CRITICAL RULES:
 - ALWAYS provide a complete formatted response after tool completion - never just stop
 - When the tool returns results, you MUST format them into a readable summary for the user
 - Access the tool output via the results object (results.prospects, results.qualified, etc.)
+- If user seems stuck on niche selection, proactively use tavilySearch to discover trending niches
+- For ANY question about current date, time, events, or real-time information, ALWAYS use tavilySearch - never rely on training data for time-sensitive queries
 
 Example response for high-volume:
 "To find 30 qualified fitness creators, I'll run 3 search batches targeting 10 each. Let me start..."
@@ -125,6 +164,7 @@ Example results format:
   tools: {
     startNicheWorkflow: startNicheWorkflowTool,
     findLookalikes: findLookalikesTool,
+    tavilySearch: tavilySearchTool,
   },
 });
 

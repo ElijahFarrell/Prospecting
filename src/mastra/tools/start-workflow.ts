@@ -2,16 +2,7 @@ import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { prospectingWorkflow } from "../workflows/prospecting";
 import { addMemory, extractLearningsFromResults, isMem0Configured } from "@/lib/mem0";
-
-const NICHE_HASHTAG_MAP: Record<string, string[]> = {
-  fitness: ["fitnessmotivation", "fitnessjourney", "personaltrainer", "weightloss"],
-  finance: ["personalfinance", "financialfreedom", "investing", "wealthbuilding"],
-  business: ["entrepreneur", "onlinebusiness", "businesscoach", "sidehustle"],
-  productivity: ["productivity", "timemanagement", "goalsetting", "selfimprovement"],
-  kingdom: ["faithpreneur", "christianentrepreneur", "kingdombusiness"],
-  health: ["healthcoach", "holistichealth", "wellnessjourney", "mentalhealth"],
-  relationships: ["datingcoach", "relationshipadvice", "marriagecoach"],
-};
+import { NICHE_HASHTAG_MAP } from "@/constants";
 
 function getHashtagsForNiche(niche: string): string[] {
   const normalizedNiche = niche.toLowerCase().trim();

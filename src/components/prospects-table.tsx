@@ -48,13 +48,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ProspectDMCard } from "./prospect-dm-card";
 
-const STATUS_OPTIONS = [
-  { value: "New", label: "New", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
-  { value: "Qualified", label: "Qualified", color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
-  { value: "Outreached", label: "Outreached", color: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
-  { value: "In Discussion", label: "In Discussion", color: "bg-purple-500/20 text-purple-400 border-purple-500/30" },
-  { value: "Closed", label: "Closed", color: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30" },
-];
+import { STATUS_OPTIONS } from "@/constants";
 
 interface Prospect {
   _id: Id<"prospects">;
