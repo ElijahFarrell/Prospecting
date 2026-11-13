@@ -1,216 +1,161 @@
-# Creator Scout
+# Shiloh Prospecting
 
-AI-powered Instagram creator prospecting engine built with Next.js 15, Mastra workflows, and Gemini.
+Shiloh Prospecting is a signed-in web app for finding Instagram creators, qualifying them for a partnership, and drafting outreach. A user describes a niche in chat. An orchestrator agent runs a prospecting workflow that scrapes public Instagram data, scores creators, and saves the results. The prospects page tracks status and generates DM variations.
 
-## Tech Stack
+The npm package name is `creator-scout`. The interface title is Shiloh Prospecting.
 
-- **Framework:** Next.js 15 (App Router)
-- **AI Agent:** Mastra Agent Framework (v1)
-- **AI Models:** Google Gemini (via Vercel AI Gateway)
-- **Database:** Convex (real-time backend)
-- **Data Source:** Apify Instagram scrapers
-- **UI:** Tailwind CSS + shadcn/ui
-- **Validation:** Zod
+## What it does
+
+- Chat with an orchestrator that can start a niche search, look for similar creators, or search the web.
+- Scout creators from Instagram hashtags (or from a list of usernames) inside a follower range, and skip handles already saved for that user.
+- Qualify creators with a structured model call on bio and stats: transformation, audience authenticity, and demographics.
+- For creators marked qualified, generate an outreach angle, a monetization gap, and a short post summary.
+- Save prospects in Convex, scoped by the Clerk user id when the workflow passes one through.
+- Generate two styles of DM copy (direct-value variations, and short openers plus a follow-up) on the prospects page.
+- Keep chat threads in Convex. Optionally store and retrieve per-user notes in Mem0.
+- Adjust search defaults and edit prompt text on the settings page. Those values are saved per user. The running agents and workflow still use the prompts and defaults in source; the saved overrides are not applied at runtime.
+- A test page calls the Apify actors used by the app. A debug page shows an in-browser log of client-side activity.
 
 ## Architecture
 
+```mermaid
+flowchart TD
+  user[Signed-in user]
+  chatUI[Chat UI]
+  chatAPI["POST /api/chat"]
+  mem0[Mem0 search]
+  orchestrator[Orchestrator agent]
+  workflow[Prospecting workflow]
+  lookalikes[find-lookalikes tool]
+  tavily[Tavily search tool]
+  scout[Scout step: Apify hashtags and profiles]
+  qualify[Qualify step: Gemini structured analysis]
+  enrich[Enrich step: outreach angle]
+  convex[(Convex)]
+  prospects[Prospects page]
+  dm["POST /api/messages/generate"]
+
+  user --> chatUI --> chatAPI
+  chatAPI --> mem0
+  chatAPI --> orchestrator
+  orchestrator --> workflow
+  orchestrator --> lookalikes
+  orchestrator --> tavily
+  workflow --> scout --> qualify --> enrich --> convex
+  lookalikes --> workflow
+  user --> prospects --> dm
+  prospects --> convex
 ```
-User Request
-     │
-     ▼
-┌────────────────┐
-│  Orchestrator  │  (Chat Interface)
-│     Agent      │
-└───────┬────────┘
-        │ triggers
-        ▼
-┌────────────────────────────────────┐
-│       Prospecting Workflow         │
-│  ┌──────┐  ┌─────────┐  ┌────────┐│
-│  │Scout │→ │ Analyst │→ │Profiler││
-│  │(Apify)│  │(Qualify)│  │(Angles)││
-│  └──────┘  └─────────┘  └────────┘│
-└────────────────┬───────────────────┘
-                 │
-                 ▼
-         ┌─────────────┐
-         │   Convex    │
-         │  Database   │
-         └─────────────┘
-```
 
-### Agents
+The chat route loads the Mastra orchestrator and streams its reply. The orchestrator's tools are:
 
-1. **Orchestrator** - Routes user requests, manages workflows, summarizes results
-2. **Scout** - Searches Instagram hashtags, filters by follower count
-3. **Analyst** - Evaluates creators on 3 pillars: Transformation, Authenticity, Demographics
-4. **Profiler** - Creates personalized outreach angles and identifies monetization gaps
+| Tool | What it does |
+| --- | --- |
+| `start-niche-workflow` | Runs the prospecting workflow for one niche. Hashtags come from `NICHE_HASHTAG_MAP`, or from the niche name when it is not in the map. |
+| `find-lookalikes` | Asks Apify for suggested accounts and hashtags related to a username, then runs the same workflow on those usernames. |
+| `tavily-search` | Web search for niche research and other questions that need current information. |
 
-## Getting Started
+The prospecting workflow is three steps:
 
-### Prerequisites
+1. **Scout.** Search hashtags or accept usernames, drop handles already stored for that user, then batch-fetch profiles and filter by follower count.
+2. **Qualify.** Call `analyzeCreatorWithAgent` (Gemini via the AI Gateway, structured output) on bio and stats. This step does not fetch comments.
+3. **Enrich.** For qualified creators, call `profileCreatorWithAgent` for the outreach angle, monetization gap, and post summary, then `saveProspectsBatch`.
 
-- Node.js 20+
-- pnpm (recommended) or npm
-- Vercel AI Gateway key
-- Apify API token
-- Convex account (free tier available)
+Mastra agent objects named Scout, Analyst, and Profiler are registered on the Mastra instance. The Scout agent wraps the `scout-creators` tool, and the Analyst agent is defined with a Tavily extract tool. The chat route does not call those three agents. Qualification and profiling on the live path go through `src/services/agent-analyst.ts`. `src/services/ai-analyst.ts` is used by the `scout-creators` tool.
 
-### Installation
+Model ids in code:
+
+- Mastra agents use `vercel/google/gemini-3-flash` (`MODELS.FAST` in `src/constants/index.ts`).
+- Direct AI SDK gateway calls use `google/gemini-3-flash` and `google/gemini-3-pro`.
+
+## Stack
+
+- Next.js 15 App Router, React 19, TypeScript
+- Mastra (`@mastra/core`) for the orchestrator and the prospecting workflow
+- Vercel AI SDK and AI Gateway (`ai`, `@ai-sdk/gateway`)
+- Clerk for sign-in
+- Convex for prospects, chat threads, messages, and settings
+- Apify for Instagram hashtag, profile, and comment actors
+- Mem0 for optional per-user memory
+- Tavily for web search
+- Tailwind CSS and shadcn/ui
+- Zod for workflow and tool schemas
+
+## Local setup
+
+Requirements: Node.js 20+, pnpm, and accounts for Clerk, Convex, Vercel AI Gateway, and Apify. Tavily and Mem0 are optional; the tools that need them throw or no-op when the key is missing.
 
 ```bash
 pnpm install
+cp .env.example .env.local
+# fill in .env.local
 ```
 
-### Environment Setup
-
-Create a `.env.local` file:
-
-```env
-# Vercel AI Gateway - single key for all AI models
-VERCEL_API_KEY=your-vercel-api-key
-
-# Apify for Instagram data
-APIFY_API_TOKEN=your-apify-token
-
-# Convex (auto-populated after convex dev)
-CONVEX_DEPLOYMENT=your-deployment-id
-NEXT_PUBLIC_CONVEX_URL=https://your-project.convex.cloud
-```
-
-### Convex Setup
-
-Initialize Convex (first time only):
+In one terminal, start Convex and follow the prompts to create a project. Put `CLERK_JWT_ISSUER_DOMAIN` in the Convex dashboard as well (Settings, Environment Variables). The issuer is the Clerk Frontend API URL, shaped like `https://your-app.clerk.accounts.dev`. In Clerk, add a Convex JWT template named `convex`.
 
 ```bash
 npx convex dev
 ```
 
-This will:
-1. Create a Convex project (follow prompts)
-2. Generate type definitions in `convex/_generated`
-3. Deploy your schema and functions
-
-### Development
+In another terminal:
 
 ```bash
 pnpm dev
 ```
 
-In a separate terminal, run Convex dev server:
+Open [http://localhost:3000](http://localhost:3000). Sign in through the Clerk modal.
 
-```bash
-npx convex dev
-```
+`pnpm build` runs a production Next.js build. `pnpm mastra:dev` starts the Mastra dev server.
 
-Open [http://localhost:3000](http://localhost:3000) to use the app.
+## Environment variables
 
-## Features
+Copy `.env.example` to `.env.local`. Placeholders only belong in the example file.
 
-- **Natural Language Search:** Describe what creators you want in plain English
-- **Multi-Niche Support:** Search Finance, Fitness, Business, Productivity, and more
-- **3-Pillar Analysis:** Transformation, Audience Authenticity, Demographics
-- **Personalized Outreach:** AI-generated hooks based on creator content
-- **Streaming Progress:** Real-time progress as workflows execute
-- **Convex Persistence:** Qualified leads saved to real-time database
-- **Chat History:** Persistent conversation threads stored in Convex
-- **Prospects Panel:** Live-updating sidebar showing all discovered creators
-- **Search Configuration:** Adjustable search depth and creator limits
-- **Deduplication:** Automatically skips creators already in your database
-- **API Test Console:** Test individual Apify APIs with prefilled inputs
-- **Debug Console:** Monitor all API calls, tool executions, and agent activity
+| Variable | Used by |
+| --- | --- |
+| `AI_GATEWAY_API_KEY` | `@ai-sdk/gateway` in the analyst, profiler, and DM generator |
+| `APIFY_API_TOKEN` | Instagram scrapers in `src/services/apify.ts` and the test routes |
+| `TAVILY_API_KEY` | `tavily-search` / `tavily-extract` tools |
+| `MEM0_API_KEY` | `src/lib/mem0.ts` |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk in the browser |
+| `CLERK_SECRET_KEY` | Clerk on the server |
+| `CLERK_JWT_ISSUER_DOMAIN` | `convex/auth.config.ts` (set it on the Convex deployment) |
+| `CONVEX_DEPLOYMENT` | Convex CLI |
+| `NEXT_PUBLIC_CONVEX_URL` | Convex client |
 
-## Project Structure
+## Project layout
 
 ```
-src/
-├── app/
-│   ├── api/
-│   │   ├── chat/          # AI chat endpoint (Orchestrator)
-│   │   └── test/          # API testing endpoints
-│   ├── debug/             # Debug console page
-│   ├── test/              # API test console page
-│   └── page.tsx           # Main dashboard
-├── components/
-│   ├── ui/                # shadcn/ui components
-│   ├── chat.tsx           # Chat interface with search config
-│   ├── chat-history.tsx   # Thread sidebar
-│   ├── prospects-panel.tsx # Qualified creators sidebar
-│   ├── convex-provider.tsx # Convex React provider
-│   ├── creator-card.tsx
-│   └── scout-progress.tsx
-├── lib/
-│   ├── convex-client.ts   # Server-side Convex HTTP client
-│   └── convex-queries.ts  # Typed Convex query wrappers
-├── mastra/
-│   ├── agents/            # Orchestrator, Analyst, Profiler, Scout
-│   ├── workflows/         # Prospecting workflow (with dedup & persistence)
-│   └── tools/             # Workflow triggers
-├── services/
-│   ├── agent-analyst.ts   # Analyst/Profiler LLM calls
-│   └── apify.ts           # Instagram scraping (batched)
-└── types/
-    └── index.ts           # Zod schemas and types
-
-convex/
-├── schema.ts              # Database schema (prospects, threads, messages)
-├── prospects.ts           # Prospect mutations and queries
-├── chats.ts               # Chat history mutations and queries
-└── _generated/            # Auto-generated types (run npx convex dev)
+src/app/api/chat/route.ts            Orchestrator stream
+src/app/api/messages/generate/       DM variations
+src/app/api/test/                    Allowlisted Apify test routes
+src/app/page.tsx                     Chat
+src/app/prospects/page.tsx           Prospect table and DMs
+src/app/settings/page.tsx            Saved prompts and search defaults
+src/app/test/page.tsx                Apify test console
+src/app/debug/page.tsx               In-browser debug log
+src/mastra/agents/                   Orchestrator, scout, analyst, profiler
+src/mastra/workflows/prospecting.ts  Scout, qualify, enrich
+src/mastra/tools/                    Workflow, lookalikes, Tavily, scout-creators
+src/services/                        Apify, analysis, DM generation
+convex/                              Schema, prospects, chats, settings, auth
 ```
 
-## Prospect Schema
+Prospects store handle, niche, follower and engagement stats, qualification, outreach fields, pipeline status (`New`, `Qualified`, `Outreached`, `In Discussion`, `Closed`, and `Disqualified` from the workflow), notes, and generated messages.
 
-Each creator is stored with:
+Niches with built-in hashtags live in `NICHE_HASHTAG_MAP`: fitness, finance, business, productivity, kingdom, health, and relationships.
 
-```typescript
-{
-  handle: string,
-  niche: string,
-  followerCount: number,
-  followingCount: number,
-  postsCount: number,
-  engagementRate: number,
-  transformationScore: number,  // 1-10
-  isQualified: boolean,
-  disqualificationReason?: string,
-  outreachAngle?: string,
-  monetizationGap?: string,
-  recentPostSummary?: string,
-  bio?: string,
-  profilePicUrl?: string,
-  isVerified: boolean,
-  locationTier: string,
-  status: string,  // "New", "Contacted", "Replied", "Disqualified"
-  redFlags?: string[],
-  createdAt: number,
-  updatedAt: number
-}
-```
+## Security notes
 
-## Supported Niches
+- Do not commit secrets. `.gitignore` ignores `.env` and `.env.*` and keeps `.env.example`. Next.js route handlers that call Apify or the AI Gateway check for a Clerk user in addition to `src/middleware.ts`.
+- Clerk middleware protects every path except `/sign-in` and `/sign-up`. There is no webhook route, and that prefix is not public.
+- `POST /api/test/raw` only runs the actor ids on its allowlist. It does not forward a caller-supplied actor id to Apify.
+- API error responses from those routes return a generic message. They do not return the upstream error text.
+- The app does not set CORS headers. Cookies are not exposed to arbitrary origins by a custom CORS policy.
+- The settings page can store custom prompts, but nothing in the agent or workflow code reads them back. Treat the prompts in source as the ones that run.
 
-- Fitness (weightlifting, weight loss, personal training)
-- Finance (personal finance, investing, wealth building)
-- Business (online business, consulting, agencies)
-- Productivity (time management, goal setting)
-- Kingdom Entrepreneurship (faith-based business)
-- Health (wellness, mental health, holistic)
-- Relationships (dating, marriage coaching)
+These items are still true and were left in place because changing them would break the current server-to-Convex path or the product behavior:
 
-## Pages
-
-- **/** - Main dashboard with chat, thread history sidebar, and prospects panel
-- **/test** - API test console for testing Apify APIs
-- **/debug** - API calls, tool executions, performance stats
-
-## Search Configuration
-
-The chat interface includes adjustable search settings:
-
-| Setting | Options | Description |
-|---------|---------|-------------|
-| Search Depth | 10, 30, 50, 100 | Number of hashtag posts to scan |
-| Creator Limit | 3, 5, 10, 15, 20 | Max creators to analyze per niche |
-
-Higher values find more creators but take longer.
+- In `convex/prospects.ts`, `saveProspect`, `saveProspectsBatch`, `getAllProspects`, `getQualifiedProspects`, `getProspectsByNiche`, `getProspectsByHandles`, `checkExistingHandles`, and `updateProspectStatus` accept an optional `userId`. When that argument is set, they do not require `ctx.auth.getUserIdentity()`. The workflow uses it because `ConvexHttpClient` in `src/lib/convex-client.ts` does not send a Clerk JWT. Anyone who can call the Convex deployment can pass a user id. `updateProspect`, `deleteProspect`, `getProspectById`, `getProspectsByStatus`, and `updateProspectMessages` do require the Convex identity and check ownership. Chat and settings functions require the Convex identity as well.
+- Any signed-in user can open `/test` and `/debug`. `/test` spends Apify credits.
+- `userId` on prospects and threads is optional in the schema so older rows still type-check. New writes from these functions set `userId`.

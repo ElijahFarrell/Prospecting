@@ -354,7 +354,7 @@ export default function TestPage() {
                   <CardTitle className="text-lg">Raw Actor Call</CardTitle>
                 </div>
                 <CardDescription>
-                  Make a raw call to any Apify actor and see the exact response
+                  Call an allowlisted Apify actor and see the response
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

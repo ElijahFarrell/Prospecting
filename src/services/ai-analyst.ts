@@ -2,7 +2,7 @@ import { generateObject } from "ai";
 import { createGateway } from "@ai-sdk/gateway";
 import { CreatorAnalysisSchema, type CreatorAnalysis } from "@/types";
 
-// Vercel AI Gateway - uses VERCEL_API_KEY env var
+// Vercel AI Gateway reads AI_GATEWAY_API_KEY.
 const gateway = createGateway();
 
 interface AnalysisInput {

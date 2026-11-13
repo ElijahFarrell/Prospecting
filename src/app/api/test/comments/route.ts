@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getComments } from "@/services/apify";
+import { requireSignedIn } from "@/lib/api-auth";
 
 export async function POST(req: Request) {
+  const unauthorized = await requireSignedIn();
+  if (unauthorized) return unauthorized;
+
   try {
     const { postUrl } = await req.json();
     
@@ -19,8 +23,9 @@ export async function POST(req: Request) {
       result,
     });
   } catch (error) {
+    console.error("Comments test failed:", error);
     return NextResponse.json(
-      { success: false, error: String(error) },
+      { success: false, error: "Request failed" },
       { status: 500 }
     );
   }

@@ -1,10 +1,10 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-// Define public routes that don't require authentication
+// Sign-in and sign-up are the only unauthenticated paths. There is no webhook
+// handler; do not leave an API prefix public.
 const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
-  "/api/webhook(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {

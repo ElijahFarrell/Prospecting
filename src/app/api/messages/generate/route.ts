@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateDMMessageVariations } from "@/services/message-generator";
+import { requireSignedIn } from "@/lib/api-auth";
 
 export async function POST(req: NextRequest) {
+  const unauthorized = await requireSignedIn();
+  if (unauthorized) return unauthorized;
+
   try {
     const body = await req.json();
     const { 
@@ -40,15 +44,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(variations);
   } catch (error) {
     console.error("Error generating messages:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    
     return NextResponse.json(
-      { 
-        error: "Failed to generate messages",
-        details: errorMessage,
-        ...(process.env.NODE_ENV === "development" && { stack: errorStack })
-      },
+      { error: "Failed to generate messages" },
       { status: 500 }
     );
   }
